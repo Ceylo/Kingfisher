@@ -26,21 +26,35 @@
 
 
 #if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#endif
 #else // os(macOS)
+#if canImport(UIKit)
 import UIKit
+#endif
+#if canImport(MobileCoreServices)
 import MobileCoreServices
+#endif
 #endif // os(macOS)
 
 #if !os(watchOS)
+#if canImport(CoreImage)
 import CoreImage
 #endif
+#endif
 
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
+#if canImport(ImageIO)
 import ImageIO
+#endif
 
 #if canImport(UniformTypeIdentifiers)
+#if canImport(UniformTypeIdentifiers)
 import UniformTypeIdentifiers
+#endif
 #endif
 
 #if compiler(>=5.10)

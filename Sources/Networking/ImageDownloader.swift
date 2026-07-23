@@ -25,9 +25,13 @@
 //  THE SOFTWARE.
 
 #if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#endif
 #else
+#if canImport(UIKit)
 import UIKit
+#endif
 #endif
 
 typealias DownloadResult = Result<ImageLoadingResult, KingfisherError>

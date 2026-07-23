@@ -31,13 +31,20 @@
 //  The name and characters used in the demo of this software are property of their
 //  respective owners.
 
+#if !os(Android)
 #if !os(watchOS)
 #if canImport(UIKit)
+#if canImport(UIKit)
 import UIKit
+#endif
+#if canImport(ImageIO)
 import ImageIO
+#endif
 typealias KFCrossPlatformContentMode = UIView.ContentMode
 #elseif canImport(AppKit)
+#if canImport(AppKit)
 import AppKit
+#endif
 typealias KFCrossPlatformContentMode = NSImageScaling
 #endif
 
@@ -970,4 +977,5 @@ class SafeArray<Element> {
         array = []
     }
 }
+#endif
 #endif

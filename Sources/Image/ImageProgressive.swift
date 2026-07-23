@@ -24,12 +24,19 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
+#if !os(Android)
 import Foundation
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 #if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#endif
 #else
+#if canImport(UIKit)
 import UIKit
+#endif
 #endif
 
 private let sharedProcessingQueue: CallbackQueue =
@@ -371,3 +378,4 @@ private final class ImageProgressiveSerialQueue: @unchecked Sendable {
         }
     }
 }
+#endif

@@ -25,10 +25,29 @@
 //  THE SOFTWARE.
 
 import Foundation
+#if canImport(ImageIO)
 import ImageIO
+#endif
+#if canImport(CoreGraphics)
+import CoreGraphics
+#endif
 
-#if os(macOS)
+#if os(Android)
+// Data-backed stub image. A plain SwiftPM package can't import SkipUI's
+// Bitmap-backed UIImage (it pulls CJNI), so on Android the pure-Swift
+// downloader/cache traffic in Data and the app module decodes for display.
+public final class KFCrossPlatformImage: @unchecked Sendable {
+    public let data: Data
+    public var kfSize: CGSize
+    public init(data: Data, size: CGSize = .zero) {
+        self.data = data
+        self.kfSize = size
+    }
+}
+#elseif os(macOS)
+#if canImport(AppKit)
 import AppKit
+#endif
 public typealias KFCrossPlatformImage       = NSImage
 public typealias KFCrossPlatformView        = NSView
 public typealias KFCrossPlatformColor       = NSColor
@@ -42,7 +61,9 @@ extension KFCrossPlatformImage: @retroactive @unchecked Sendable { }
 extension KFCrossPlatformImage: @unchecked Sendable { }
 #endif // compiler(>=6)
 #else // os(macOS)
+#if canImport(UIKit)
 import UIKit
+#endif
 public typealias KFCrossPlatformImage       = UIImage
 public typealias KFCrossPlatformColor       = UIColor
 #if !os(watchOS)
@@ -106,6 +127,7 @@ extension KingfisherCompatibleValue {
 }
 
 extension KFCrossPlatformImage      : KingfisherCompatible { }
+#if !os(Android)
 #if !os(watchOS)
 extension KFCrossPlatformImageView  : KingfisherCompatible { }
 extension KFCrossPlatformButton     : KingfisherCompatible { }
@@ -129,3 +151,4 @@ extension TVMonogramView            : KingfisherCompatible { }
 @available(iOS 14.0, *)
 extension CPListItem                : KingfisherCompatible { }
 #endif
+#endif // !os(Android)

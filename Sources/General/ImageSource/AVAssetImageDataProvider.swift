@@ -24,15 +24,20 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
+#if !os(Android)
 #if !os(watchOS)
 
 import Foundation
 import AVKit
 
 #if canImport(MobileCoreServices)
+#if canImport(MobileCoreServices)
 import MobileCoreServices
+#endif
 #else
+#if canImport(CoreServices)
 import CoreServices
+#endif
 #endif
 
 #if compiler(>=6)
@@ -154,4 +159,5 @@ extension CGImage {
     }
 }
 
+#endif
 #endif

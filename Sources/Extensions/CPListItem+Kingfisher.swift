@@ -25,6 +25,7 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
+#if !os(Android)
 #if canImport(CarPlay) && !targetEnvironment(macCatalyst)
 import CarPlay
 
@@ -186,4 +187,5 @@ extension KingfisherWrapper where Base: CPListItem {
         set { setRetainedAssociatedObject(base, &imageTaskKey, newValue)}
     }
 }
+#endif
 #endif

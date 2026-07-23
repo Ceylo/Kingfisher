@@ -24,6 +24,7 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
+#if !os(Android)
 import Foundation
 
 #if os(iOS) || os(macOS) || os(visionOS)
@@ -115,4 +116,5 @@ public struct PHPickerResultImageDataProvider: ImageDataProvider {
     }
 }
 
+#endif
 #endif

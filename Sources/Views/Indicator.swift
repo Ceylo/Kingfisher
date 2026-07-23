@@ -24,13 +24,18 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
+#if !os(Android)
 #if !os(watchOS)
 
 #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+#if canImport(AppKit)
 import AppKit
+#endif
 public typealias IndicatorView = NSView
 #else
+#if canImport(UIKit)
 import UIKit
+#endif
 public typealias IndicatorView = UIView
 #endif
 
@@ -245,4 +250,5 @@ final class ImageIndicator: Indicator {
     }
 }
 
+#endif
 #endif

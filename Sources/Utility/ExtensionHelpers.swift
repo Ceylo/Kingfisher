@@ -33,7 +33,9 @@ extension CGFloat {
 }
 
 #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+#if canImport(AppKit)
 import AppKit
+#endif
 extension NSBezierPath {
     convenience init(roundedRect rect: NSRect, topLeftRadius: CGFloat, topRightRadius: CGFloat,
                      bottomLeftRadius: CGFloat, bottomRightRadius: CGFloat)
@@ -83,7 +85,9 @@ extension KFCrossPlatformImage {
 #endif
 
 #if canImport(UIKit)
+#if canImport(UIKit)
 import UIKit
+#endif
 extension RectCorner {
     var uiRectCorner: UIRectCorner {
         

@@ -25,7 +25,9 @@
 //  THE SOFTWARE.
 
 import Foundation
+#if canImport(ImageIO)
 import ImageIO
+#endif
 
 /// Represents a set of image creation options used in Kingfisher.
 public struct ImageCreatingOptions: Equatable {

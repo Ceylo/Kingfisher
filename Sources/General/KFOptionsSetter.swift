@@ -25,11 +25,17 @@
 //  THE SOFTWARE.
 
 import Foundation
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 #if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#endif
 #else
+#if canImport(UIKit)
 import UIKit
+#endif
 #endif
 
 /// A protocol that Kingfisher can use to perform chained setting in builder pattern.

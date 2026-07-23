@@ -24,7 +24,9 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 
 extension CGSize: KingfisherCompatibleValue {}
 extension KingfisherWrapper where Base == CGSize {

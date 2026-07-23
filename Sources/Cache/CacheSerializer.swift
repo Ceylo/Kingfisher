@@ -25,11 +25,17 @@
 //  THE SOFTWARE.
 
 import Foundation
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 #if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#endif
 #else
+#if canImport(UIKit)
 import UIKit
+#endif
 #endif
 
 /// A `CacheSerializer` is used to convert some data to an image object after retrieving it from disk storage,

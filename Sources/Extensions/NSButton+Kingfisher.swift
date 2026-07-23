@@ -24,9 +24,12 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
+#if !os(Android)
 #if canImport(AppKit) && !targetEnvironment(macCatalyst)
 
+#if canImport(AppKit)
 import AppKit
+#endif
 
 @MainActor
 extension KingfisherWrapper where Base: NSButton {
@@ -290,4 +293,5 @@ extension KingfisherWrapper where Base: NSButton {
         set { setRetainedAssociatedObject(base, &alternateImageCancellationTokenKey, newValue) }
     }
 }
+#endif
 #endif

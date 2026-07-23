@@ -26,9 +26,13 @@
 
 
 #if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#endif
 #else
+#if canImport(UIKit)
 import UIKit
+#endif
 #endif
 
 /// Progress update block of prefetcher when initialized with a list of resources.

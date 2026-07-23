@@ -24,13 +24,18 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
+#if !os(Android)
 #if os(macOS) || os(watchOS)
 
 #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+#if canImport(AppKit)
 import AppKit
 #endif
+#endif
+#if canImport(UIKit)
 #if canImport(UIKit)
 import UIKit
+#endif
 #endif
 
 enum GraphicsContext {
@@ -177,4 +182,5 @@ private struct BitmapContextDescriptor {
         return (rawBytes + 0x3F) & ~0x3F
     }
 }
+#endif
 #endif

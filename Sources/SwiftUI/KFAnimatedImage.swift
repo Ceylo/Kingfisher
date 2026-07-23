@@ -24,9 +24,12 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
+#if !os(Android)
 #if canImport(SwiftUI) && canImport(Combine) && !os(watchOS)
 import SwiftUI
+#if canImport(Combine)
 import Combine
+#endif
 
 /// Represents an animated image view in SwiftUI that manages its content using Kingfisher.
 ///
@@ -149,5 +152,6 @@ struct KFAnimatedImage_Previews: PreviewProvider {
         }
     }
 }
+#endif
 #endif
 #endif

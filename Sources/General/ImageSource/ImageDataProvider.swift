@@ -25,7 +25,9 @@
 //  THE SOFTWARE.
 
 import Foundation
+#if canImport(ImageIO)
 import ImageIO
+#endif
 
 /// Represents a data provider to provide image data to Kingfisher when setting with
 /// ``Source/provider(_:)`` source. Compared to ``Source/network(_:)`` member, it gives a chance

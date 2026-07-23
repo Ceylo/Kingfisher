@@ -26,10 +26,16 @@
 
 #if !os(watchOS)
 #if canImport(UIKit)
+#if canImport(UIKit)
 import UIKit
+#endif
 #else
+#if canImport(AppKit)
 import AppKit
+#endif
+#if canImport(CoreVideo)
 import CoreVideo
+#endif
 #endif
 
 protocol DisplayLinkCompatible: AnyObject, Sendable {

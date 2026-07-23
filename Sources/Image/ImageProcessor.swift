@@ -25,12 +25,18 @@
 //  THE SOFTWARE.
 
 import Foundation
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 
 #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+#if canImport(AppKit)
 import AppKit
+#endif
 #else
+#if canImport(UIKit)
 import UIKit
+#endif
 #endif
 
 /// Represents an item which could be processed by an `ImageProcessor`.

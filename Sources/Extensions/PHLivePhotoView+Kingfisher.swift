@@ -24,6 +24,7 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
+#if !os(Android)
 #if os(watchOS)
 // Only a placeholder.
 public struct RetrieveLivePhotoResult: @unchecked Sendable {
@@ -315,4 +316,5 @@ extension KingfisherWrapper where Base: PHLivePhotoView {
         return .imageSettingError(reason: .notCurrentLivePhotoSourceTask(result: result, error: error, source: source))
     }
 }
+#endif
 #endif

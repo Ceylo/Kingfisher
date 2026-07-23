@@ -25,7 +25,9 @@
 //  THE SOFTWARE.
 
 #if canImport(UIKit)
+#if canImport(UIKit)
 import UIKit
+#endif
 #endif
 
 #if canImport(CarPlay) && !targetEnvironment(macCatalyst)
@@ -33,7 +35,9 @@ import CarPlay
 #endif
 
 #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+#if canImport(AppKit)
 import AppKit
+#endif
 #endif
 
 #if canImport(WatchKit)
