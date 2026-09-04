@@ -25,6 +25,9 @@
 //  THE SOFTWARE.
 
 import Foundation
+#if os(Android)
+import FoundationNetworking
+#endif
 
 /// Represents the network performance metrics collected during an image download task.
 public struct NetworkMetrics: Sendable {

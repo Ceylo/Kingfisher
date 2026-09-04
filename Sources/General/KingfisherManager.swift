@@ -26,14 +26,13 @@
 
 
 import Foundation
-#if os(macOS)
-#if canImport(AppKit)
+#if os(Android)
+import Foundation
+import FoundationNetworking
+#elseif os(macOS)
 import AppKit
-#endif
 #else
-#if canImport(UIKit)
 import UIKit
-#endif
 #endif
 
 /// Represents the type for a downloading progress block.
@@ -313,6 +312,7 @@ public class KingfisherManager: @unchecked Sendable {
         var options = options
         let retryStrategy = options.retryStrategy
 
+        #if !os(Android)
         let progressiveJPEG = options.progressiveJPEG
         if let provider = ImageProgressiveProvider(options: options, refresh: { image in
             guard let setter = progressiveImageSetter else {
@@ -330,6 +330,7 @@ public class KingfisherManager: @unchecked Sendable {
         }) {
             options.onDataReceived = (options.onDataReceived ?? []) + [provider]
         }
+        #endif
         if let checker = referenceTaskIdentifierChecker {
             options.onDataReceived?.forEach {
                 $0.onShouldApply = checker
@@ -920,11 +921,13 @@ public class KingfisherManager: @unchecked Sendable {
             // TODO: Optimize it when we can use async across all the project.
             @Sendable func checkResultImageAndCallback(_ inputImage: KFCrossPlatformImage) {
                 var image = inputImage
+                #if !os(Android)
                 if image.kf.imageFrameCount != nil && image.kf.imageFrameCount != 1, options.imageCreatingOptions != image.kf.imageCreatingOptions, let data = image.kf.animatedImageData {
                     // Recreate animated image representation when loaded in different options.
                     // https://github.com/onevcat/Kingfisher/issues/1923
                     image = options.processor.process(item: .data(data), options: options) ?? .init()
                 }
+                #endif
                 if let modifier = options.imageModifier {
                     image = modifier.modify(image)
                 }

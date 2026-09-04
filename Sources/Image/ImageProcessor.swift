@@ -25,18 +25,17 @@
 //  THE SOFTWARE.
 
 import Foundation
-#if canImport(CoreGraphics)
+#if !os(Android)
 import CoreGraphics
 #endif
 
-#if canImport(AppKit) && !targetEnvironment(macCatalyst)
-#if canImport(AppKit)
+#if os(Android)
+import Foundation
+import FoundationNetworking
+#elseif canImport(AppKit) && !targetEnvironment(macCatalyst)
 import AppKit
-#endif
 #else
-#if canImport(UIKit)
 import UIKit
-#endif
 #endif
 
 /// Represents an item which could be processed by an `ImageProcessor`.
@@ -139,12 +138,18 @@ public struct DefaultImageProcessor: ImageProcessor {
     public func process(item: ImageProcessItem, options: KingfisherParsedOptionsInfo) -> KFCrossPlatformImage? {
         switch item {
         case .image(let image):
+            #if os(Android)
+            return image
+            #else
             return image.kf.scaled(to: options.scaleFactor)
+            #endif
         case .data(let data):
             return KingfisherWrapper.image(data: data, options: options.imageCreatingOptions)
         }
     }
 }
+
+#if !os(Android)
 
 /// Represents the rect corner setting when processing a round corner image.
 public struct RectCorner: OptionSet, Sendable {
@@ -503,6 +508,8 @@ public struct BorderImageProcessor: ImageProcessor {
     }
 }
 
+#endif // !os(Android)
+
 /// Represents how a size of content adjusts itself to fit a target size.
 public enum ContentMode: Sendable {
     /// Does not scale the content.
@@ -512,6 +519,8 @@ public enum ContentMode: Sendable {
     /// Scales the content to fill the size of the view.
     case aspectFill
 }
+
+#if !os(Android)
 
 /// Processor for resizing images.
 ///
@@ -843,6 +852,8 @@ struct LivePhotoImageProcessor: ImageProcessor {
     }
 }
 
+#endif // !os(Android)
+
 infix operator |>: AdditionPrecedence
 
 /// Concatenates two `ImageProcessor`s to create a new one, in which the `left` and `right` are combined in order to 
@@ -855,6 +866,8 @@ infix operator |>: AdditionPrecedence
 public func |>(left: any ImageProcessor, right: any ImageProcessor) -> any ImageProcessor {
     return left.append(another: right)
 }
+
+#if !os(Android)
 
 extension KFCrossPlatformColor {
     
@@ -878,3 +891,5 @@ extension KFCrossPlatformColor {
         return String(format: "(%.2f,%.2f,%.2f,%.2f)", components.r, components.g, components.b, components.a)
     }
 }
+
+#endif // !os(Android)

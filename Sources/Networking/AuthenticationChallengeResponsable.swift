@@ -25,6 +25,9 @@
 //  THE SOFTWARE.
 
 import Foundation
+#if os(Android)
+import FoundationNetworking
+#endif
 
 @available(*, deprecated, message: "Typo. Use `AuthenticationChallengeResponsible` instead", renamed: "AuthenticationChallengeResponsible")
 public typealias AuthenticationChallengeResponsable = AuthenticationChallengeResponsible
@@ -78,12 +81,16 @@ extension AuthenticationChallengeResponsible {
         didReceive challenge: URLAuthenticationChallenge
     ) async -> (URLSession.AuthChallengeDisposition, URLCredential?)
     {
+        // swift-corelibs-foundation has no Security framework, so no server-trust
+        // credential can be built there.
+        #if !os(Android)
         if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust {
             if let trustedHosts = downloader.trustedHosts, trustedHosts.contains(challenge.protectionSpace.host) {
                 let credential = URLCredential(trust: challenge.protectionSpace.serverTrust!)
                 return (.useCredential, credential)
             }
         }
+        #endif
 
         return (.performDefaultHandling, nil)
     }

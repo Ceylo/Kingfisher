@@ -24,14 +24,13 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#if os(macOS)
-#if canImport(AppKit)
+#if os(Android)
+import Foundation
+import FoundationNetworking
+#elseif os(macOS)
 import AppKit
-#endif
 #else
-#if canImport(UIKit)
 import UIKit
-#endif
 #endif
 
 typealias DownloadResult = Result<ImageLoadingResult, KingfisherError>
@@ -382,9 +381,11 @@ open class ImageDownloader: @unchecked Sendable {
         // Creates default request.
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: downloadTimeout)
         request.httpShouldUsePipelining = requestsUsePipelining
+        #if !os(Android)
         if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) , options.lowDataModeSource != nil {
             request.allowsConstrainedNetworkAccess = false
         }
+        #endif
         
         guard let requestModifier = options.requestModifier else {
             checkRequestAndDone(r: request)

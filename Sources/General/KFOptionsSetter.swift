@@ -25,17 +25,16 @@
 //  THE SOFTWARE.
 
 import Foundation
-#if canImport(CoreGraphics)
+#if !os(Android)
 import CoreGraphics
 #endif
-#if os(macOS)
-#if canImport(AppKit)
+#if os(Android)
+import Foundation
+import FoundationNetworking
+#elseif os(macOS)
 import AppKit
-#endif
 #else
-#if canImport(UIKit)
 import UIKit
-#endif
 #endif
 
 /// A protocol that Kingfisher can use to perform chained setting in builder pattern.
@@ -605,6 +604,8 @@ extension KFOptionSetter {
         return result
     }
 
+    #if !os(Android)
+
     /// Appends a ``RoundCornerImageProcessor`` to the current set of processors.
     ///
     /// - Parameters:
@@ -730,6 +731,8 @@ extension KFOptionSetter {
             ResizingImageProcessor(referenceSize: referenceSize, mode: mode)
         )
     }
+
+    #endif // !os(Android)
 }
 
 // MARK: - Cache Serializer

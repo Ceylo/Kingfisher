@@ -23,13 +23,9 @@
 //  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
-
-#if !os(Android)
 import Foundation
 #if os(iOS) || os(tvOS) || os(visionOS)
-#if canImport(UIKit)
 import UIKit
-#endif
 
 /// Transition effect to be used when an image is downloaded and set using the `UIImageView` extension API in Kingfisher.
 ///
@@ -113,4 +109,4 @@ public enum ImageTransition: Sendable {
     case fade(TimeInterval)
 }
 #endif
-#endif
+

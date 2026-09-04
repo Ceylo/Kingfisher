@@ -24,10 +24,13 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#if canImport(UIKit)
+import Foundation
+#if os(Android)
+import FoundationNetworking
+#endif
+
 #if canImport(UIKit)
 import UIKit
-#endif
 #endif
 
 #if canImport(CarPlay) && !targetEnvironment(macCatalyst)
@@ -35,9 +38,7 @@ import CarPlay
 #endif
 
 #if canImport(AppKit) && !targetEnvironment(macCatalyst)
-#if canImport(AppKit)
 import AppKit
-#endif
 #endif
 
 #if canImport(WatchKit)
@@ -113,7 +114,7 @@ extension KF {
         
         private let source: Source?
 
-        #if os(watchOS)
+        #if os(watchOS) || os(Android)
         private var _placeholder: KFCrossPlatformImage?
         private var placeholder: KFCrossPlatformImage? {
             get { propertyQueue.sync { _placeholder } }
@@ -157,6 +158,9 @@ extension KF {
         }
     }
 }
+
+// The view setters below need UIKit/AppKit image views and `Placeholder`.
+#if !os(Android)
 
 @MainActor
 extension KF.Builder {
@@ -357,6 +361,8 @@ extension KF.Builder {
     }
 }
 #endif
+
+#endif // !os(Android)
 
 extension KF.Builder {
 

@@ -23,16 +23,12 @@
 //  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
-
 #if !os(Android)
+
 #if os(macOS)
-#if canImport(AppKit)
 import AppKit
-#endif
 #else
-#if canImport(UIKit)
 import UIKit
-#endif
 #endif
 
 public struct LivePhotoResourceDownloadingResult: Sendable {
@@ -100,4 +96,5 @@ extension ImageDownloader {
         }
     }
 }
-#endif
+
+#endif // !os(Android)

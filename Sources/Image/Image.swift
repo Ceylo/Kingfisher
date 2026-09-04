@@ -25,37 +25,157 @@
 //  THE SOFTWARE.
 
 
-#if os(macOS)
-#if canImport(AppKit)
+#if os(Android)
+// Deliberately *not* `import SkipSwiftUI`: it vends its own `CGFloat`/`CGSize`, which
+// would make every bare mention here ambiguous. `KFCrossPlatformImage` is its `UIImage`
+// via the typealias in General/Kingfisher.swift, and members resolve without the import.
+import Foundation
+#elseif os(macOS)
 import AppKit
-#endif
 #else // os(macOS)
-#if canImport(UIKit)
 import UIKit
-#endif
-#if canImport(MobileCoreServices)
 import MobileCoreServices
-#endif
 #endif // os(macOS)
 
+#if !os(Android)
 #if !os(watchOS)
-#if canImport(CoreImage)
 import CoreImage
 #endif
-#endif
 
-#if canImport(CoreGraphics)
 import CoreGraphics
-#endif
-#if canImport(ImageIO)
 import ImageIO
-#endif
 
-#if canImport(UniformTypeIdentifiers)
 #if canImport(UniformTypeIdentifiers)
 import UniformTypeIdentifiers
 #endif
-#endif
+#endif // !os(Android)
+
+#if os(Android)
+
+// MARK: - Android
+
+// Kingfisher funnels every decode through the five entry points below. On Android
+// they map onto SkipSwiftUI's Bitmap-backed `UIImage` instead of ImageIO, which is
+// why no CoreGraphics/ImageIO shim is needed. Two things do not survive the crossing:
+// there is no ObjC runtime to hang associated objects on, so the per-image metadata
+// is not stored, and there is no animated-image path, so a GIF decodes to its first
+// frame.
+
+// MARK: - Image Properties
+extension KingfisherWrapper where Base: KFCrossPlatformImage {
+    private(set) var animatedImageData: Data? {
+        get { nil }
+        set { }
+    }
+
+    private(set) var imageCreatingOptions: ImageCreatingOptions? {
+        get { nil }
+        set { }
+    }
+
+    public var imageFrameCount: Int? {
+        get { nil }
+        set { }
+    }
+
+    var scale: CGFloat { CGFloat(base.scale) }
+    var images: [KFCrossPlatformImage]? { nil }
+    var duration: TimeInterval { 0.0 }
+    var size: CGSize { CGSize(width: base.size.width, height: base.size.height) }
+
+    /// Copies Kingfisher internal image states from `base` to a `target` image.
+    ///
+    /// No-op on Android: there is no associated-object storage to copy.
+    public func copyKingfisherState(to target: KFCrossPlatformImage) { }
+
+    // Bitmap memory cost with bytes. `Bitmap` is always 4 bytes per pixel here.
+    var cost: Int { Int(size.width * size.height * 4) }
+}
+
+// MARK: - Image Conversion
+extension KingfisherWrapper where Base: KFCrossPlatformImage {
+    /// The normalized image. Android's decoder already applies the EXIF orientation,
+    /// so this getter returns the image itself.
+    public var normalized: KFCrossPlatformImage { base }
+
+    /// The decoded image. A `Bitmap` is decoded the moment it is created, so there is
+    /// no lazy CoreGraphics decode to force here.
+    public var decoded: KFCrossPlatformImage { base }
+
+    /// The decoded image at a given scale. See ``decoded``.
+    public func decoded(scale: CGFloat) -> KFCrossPlatformImage { base }
+}
+
+// MARK: - Image Representation
+extension KingfisherWrapper where Base: KFCrossPlatformImage {
+    /// Returns a data object that contains the specified image in PNG format.
+    public func pngRepresentation() -> Data? {
+        base.pngData()
+    }
+
+    /// Returns a data object that contains the specified image in JPEG format.
+    ///
+    /// - Parameter compressionQuality: The compression quality when converting image to JPEG data.
+    public func jpegRepresentation(compressionQuality: CGFloat) -> Data? {
+        base.jpegData(compressionQuality: Double(compressionQuality))
+    }
+
+    /// Returns GIF representation of `base` image. Always `nil` on Android, which has
+    /// no animated-image path.
+    public func gifRepresentation() -> Data? { nil }
+
+    /// Returns a data representation for the `base` image with the specified `format`.
+    public func data(format: ImageFormat, compressionQuality: CGFloat = 1.0) -> Data? {
+        switch format {
+        case .PNG: return pngRepresentation()
+        case .JPEG: return jpegRepresentation(compressionQuality: compressionQuality)
+        case .GIF: return gifRepresentation()
+        case .unknown: return normalized.kf.pngRepresentation()
+        }
+    }
+}
+
+// MARK: - Creating Images
+extension KingfisherWrapper where Base: KFCrossPlatformImage {
+    /// Creates an image from provided data and options.
+    ///
+    /// Android has no animated-image path, so a GIF decodes to its first frame.
+    public static func animatedImage(data: Data, options: ImageCreatingOptions) -> KFCrossPlatformImage? {
+        image(data: data, options: options)
+    }
+
+    /// Creates an image from provided data and options. Returns `nil` if the data is
+    /// invalid or in a format the platform decoder does not understand.
+    public static func image(data: Data, options: ImageCreatingOptions) -> KFCrossPlatformImage? {
+        KFCrossPlatformImage(data: data, scale: Double(options.scale))
+    }
+
+    /// Creates a downsampled image from the given data to a specified size and scale.
+    ///
+    /// Unlike ImageIO, `Bitmap` cannot decode straight to the target size, so this
+    /// decodes and then scales. It never upscales, and it preserves the aspect ratio
+    /// by fitting the longest edge — the same contract `kCGImageSourceThumbnailMaxPixelSize`
+    /// has on Apple platforms.
+    public static func downsampledImage(
+        data: Data,
+        to pointSize: CGSize,
+        scale: CGFloat
+    ) -> KFCrossPlatformImage? {
+        guard let image = KFCrossPlatformImage(data: data, scale: Double(scale)) else { return nil }
+        let width = image.size.width, height = image.size.height
+        guard width > 0, height > 0 else { return image }
+
+        let maxDimensionInPixels = Double(max(pointSize.width, pointSize.height) * scale)
+        let ratio = maxDimensionInPixels / max(width, height)
+        guard ratio < 1 else { return image }
+
+        return image.preparingThumbnail(
+            of: .init(width: max(1, (width * ratio).rounded()), height: max(1, (height * ratio).rounded()))
+        ) ?? image
+    }
+}
+
+#else // os(Android)
 
 #if compiler(>=5.10)
 nonisolated(unsafe) private let animatedImageDataKey = malloc(1)!
@@ -499,3 +619,5 @@ extension KingfisherWrapper where Base: KFCrossPlatformImage {
         return KingfisherWrapper.image(cgImage: downsampledImage, scale: scale, refImage: nil)
     }
 }
+
+#endif // os(Android)

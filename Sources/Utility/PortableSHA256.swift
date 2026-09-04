@@ -2,11 +2,11 @@
 //  PortableSHA256.swift
 //  Kingfisher (Android)
 //
-//  Pure-Swift SHA-256 for platforms without CryptoKit/CommonCrypto (Android).
+//  Pure-Swift SHA-256 for Android, which has neither CryptoKit nor CommonCrypto.
 //  Used only to derive disk-cache keys, which are per-platform, so it just needs
 //  to be a correct, stable hash.
 //
-#if !canImport(CryptoKit)
+#if os(Android)
 
 import Foundation
 

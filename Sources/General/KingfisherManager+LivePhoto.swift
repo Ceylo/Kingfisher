@@ -23,8 +23,8 @@
 //  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
-
 #if !os(Android)
+
 #if !os(watchOS)
 @preconcurrency import Photos
 
@@ -271,4 +271,5 @@ extension ImageCache {
     }
 }
 #endif
-#endif
+
+#endif // !os(Android)

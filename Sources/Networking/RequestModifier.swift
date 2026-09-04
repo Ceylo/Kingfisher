@@ -25,6 +25,9 @@
 //  THE SOFTWARE.
 
 import Foundation
+#if os(Android)
+import FoundationNetworking
+#endif
 
 /// Represents and wraps a method for modifying a request before an image download request starts asynchronously.
 ///

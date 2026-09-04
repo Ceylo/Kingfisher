@@ -1,0 +1,9 @@
+# Natively-compiled Skip Fuse module, like FAKit. Kingfisher carries the plugin so it
+# can reach SkipSwiftUI's Bitmap-backed `UIImage` — the Android half of the decode seam
+# in Sources/Image/Image.swift. Reaching that type pulls CJNI, which only a
+# plugin-carrying module can resolve.
+# `package` is required: skipstone would otherwise derive "kingfisher.module" from a
+# name that does not split on camel case.
+skip:
+  mode: 'native'
+  package: 'kingfisher'

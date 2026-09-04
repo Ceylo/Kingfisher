@@ -24,14 +24,13 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#if os(macOS)
-#if canImport(AppKit)
+#if os(Android)
+import Foundation
+import FoundationNetworking
+#elseif os(macOS)
 import AppKit
-#endif
 #else
-#if canImport(UIKit)
 import UIKit
-#endif
 #endif
 
 /// An ``ImageModifier`` can be used to change properties on an image between cache serialization and the actual use of
@@ -74,9 +73,7 @@ public struct AnyImageModifier: ImageModifier {
 }
 
 #if os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
-#if canImport(UIKit)
 import UIKit
-#endif
 
 /// Modifier for setting the rendering mode of images.
 public struct RenderingModeImageModifier: ImageModifier {

@@ -25,17 +25,16 @@
 //  THE SOFTWARE.
 
 import Foundation
-#if canImport(CoreGraphics)
+#if !os(Android)
 import CoreGraphics
 #endif
-#if os(macOS)
-#if canImport(AppKit)
+#if os(Android)
+import Foundation
+import FoundationNetworking
+#elseif os(macOS)
 import AppKit
-#endif
 #else
-#if canImport(UIKit)
 import UIKit
-#endif
 #endif
 
 /// The ``FormatIndicatedCacheSerializer`` enables you to specify an image format for serialized caches.
@@ -113,7 +112,7 @@ public struct FormatIndicatedCacheSerializer: CacheSerializer {
     public func data(with image: KFCrossPlatformImage, original: Data?) -> Data? {
         
         func imageData(withFormat imageFormat: ImageFormat) -> Data? {
-            return autoreleasepool { () -> Data? in
+            func encode() -> Data? {
                 switch imageFormat {
                 case .PNG: return image.kf.pngRepresentation()
                 case .JPEG: return image.kf.jpegRepresentation(compressionQuality: jpegCompressionQuality ?? 1.0)
@@ -121,6 +120,11 @@ public struct FormatIndicatedCacheSerializer: CacheSerializer {
                 case .unknown: return nil
                 }
             }
+            #if os(Android)
+            return encode()
+            #else
+            return autoreleasepool { encode() }
+            #endif
         }
         
         // generate data with indicated image format

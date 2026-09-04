@@ -24,14 +24,13 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#if os(macOS)
-#if canImport(AppKit)
+#if os(Android)
+import Foundation
+import FoundationNetworking
+#elseif os(macOS)
 import AppKit
-#endif
 #else
-#if canImport(UIKit)
 import UIKit
-#endif
 #endif
 
 extension Notification.Name {
@@ -202,6 +201,9 @@ open class ImageCache: @unchecked Sendable {
         let ioQueueName = "com.onevcat.Kingfisher.ImageCache.ioQueue.\(UUID().uuidString)"
         ioQueue = DispatchQueue(label: ioQueueName)
 
+        // Android has no ObjC runtime for `#selector`, and no app-lifecycle
+        // notification reaches this layer.
+        #if !os(Android)
         Task { @MainActor in
             let notifications: [(Notification.Name, Selector)]
             #if !os(macOS) && !os(watchOS)
@@ -221,6 +223,7 @@ open class ImageCache: @unchecked Sendable {
                 NotificationCenter.default.addObserver(self, selector: $0.1, name: $0.0, object: nil)
             }
         }
+        #endif
     }
     
     /// Creates an ``ImageCache`` with a given `name`.
@@ -848,7 +851,10 @@ open class ImageCache: @unchecked Sendable {
     }
     
     /// Clears the memory storage of this cache.
-    @objc public func clearMemoryCache() {
+    #if !os(Android)
+    @objc
+    #endif
+    public func clearMemoryCache() {
         memoryStorage.removeAll()
     }
     
@@ -885,7 +891,10 @@ open class ImageCache: @unchecked Sendable {
     /// Clears the expired images from disk storage. 
     ///
     /// This is an async operation.
-    @objc func cleanExpiredDiskCache() {
+    #if !os(Android)
+    @objc
+    #endif
+    func cleanExpiredDiskCache() {
         cleanExpiredDiskCache(completion: nil)
     }
 
@@ -922,7 +931,7 @@ open class ImageCache: @unchecked Sendable {
         }
     }
 
-#if !os(macOS) && !os(watchOS)
+#if !os(macOS) && !os(watchOS) && !os(Android)
     /// Clears the expired images from disk storage when the app is in the background. 
     ///
     /// This is an asynchronous operation. When the cache clearing operation finishes, the `handler` will be invoked.
@@ -1453,7 +1462,7 @@ open class ImageCache: @unchecked Sendable {
 // Concurrency
 
 
-#if !os(macOS) && !os(watchOS)
+#if !os(macOS) && !os(watchOS) && !os(Android)
 // MARK: - For App Extensions
 extension UIApplication: KingfisherCompatible { }
 extension KingfisherWrapper where Base: UIApplication {

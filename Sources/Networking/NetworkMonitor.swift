@@ -24,10 +24,13 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#if canImport(Network)
+#if !os(Android)
 import Network
 #endif
 import Foundation
+#if os(Android)
+import FoundationNetworking
+#endif
 
 /// A protocol for network connectivity monitoring that allows for dependency injection and testing.
 internal protocol NetworkMonitoring: Sendable {
@@ -51,16 +54,19 @@ internal protocol NetworkObserver: Sendable {
 /// A shared singleton that manages network connectivity monitoring.
 /// This prevents creating multiple NWPathMonitor instances when many NetworkRetryStrategy instances are used.
 /// The monitor is created lazily only when first accessed.
-#if !canImport(Network)
-/// Android/Linux stub: no `Network` framework. Reports connected and notifies
-/// observers immediately, so `NetworkRetryStrategy` proceeds without waiting.
+#if os(Android)
+/// Android has no `Network` framework. Reports connected and notifies observers
+/// immediately, so ``NetworkRetryStrategy`` proceeds without waiting.
 internal final class NetworkMonitor: @unchecked Sendable, NetworkMonitoring {
     static let `default` = NetworkMonitor()
     var isConnected: Bool { true }
     private init() {}
     func removeObserver(_ observer: NetworkObserverImpl) {}
 
-    func observeConnectivity(timeoutInterval: TimeInterval?, callback: @escaping @Sendable (Bool) -> Void) -> NetworkObserver {
+    func observeConnectivity(
+        timeoutInterval: TimeInterval?,
+        callback: @escaping @Sendable (Bool) -> Void
+    ) -> NetworkObserver {
         let observer = NetworkObserverImpl(timeoutInterval: timeoutInterval, callback: callback, monitor: self)
         observer.notify(isConnected: true)
         return observer
@@ -149,7 +155,7 @@ internal final class NetworkMonitor: @unchecked Sendable, NetworkMonitoring {
         return observer
     }
 }
-#endif
+#endif // os(Android)
 
 /// Internal implementation of network observer that manages timeout and callbacks.
 ///

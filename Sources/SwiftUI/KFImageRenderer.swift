@@ -24,12 +24,9 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#if !os(Android)
 #if canImport(SwiftUI) && canImport(Combine)
 import SwiftUI
-#if canImport(Combine)
 import Combine
-#endif
 
 /// A Kingfisher compatible SwiftUI `View` to load an image from a `Source`.
 /// Declaring a `KFImage` in a `View`'s body to trigger loading from the given `Source`.
@@ -178,6 +175,5 @@ extension UIImage.Orientation {
         }
     }
 }
-#endif
 #endif
 #endif

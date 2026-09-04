@@ -25,6 +25,9 @@
 //  THE SOFTWARE.
 
 import Foundation
+#if os(Android)
+import FoundationNetworking
+#endif
 
 private let sharedProcessingQueue: CallbackQueue =
     .dispatch(DispatchQueue(label: "com.onevcat.Kingfisher.ImageDownloader.Process"))

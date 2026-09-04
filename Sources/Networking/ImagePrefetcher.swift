@@ -25,14 +25,13 @@
 //  THE SOFTWARE.
 
 
-#if os(macOS)
-#if canImport(AppKit)
+#if os(Android)
+import Foundation
+import FoundationNetworking
+#elseif os(macOS)
 import AppKit
-#endif
 #else
-#if canImport(UIKit)
 import UIKit
-#endif
 #endif
 
 /// Progress update block of prefetcher when initialized with a list of resources.

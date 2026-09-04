@@ -277,9 +277,23 @@ extension MemoryStorage {
     }
 }
 
+// `NSDiscardableContent` is an ObjC protocol with no Android counterpart. The access
+// counting below is what `MemoryStorage` itself relies on, so the stand-in keeps the
+// same requirements.
+#if os(Android)
+protocol KFDiscardableContent: AnyObject {
+    func beginContentAccess() -> Bool
+    func endContentAccess()
+    func discardContentIfPossible()
+    func isContentDiscarded() -> Bool
+}
+#else
+typealias KFDiscardableContent = NSDiscardableContent
+#endif
+
 extension MemoryStorage {
     
-    class BackgroundKeepingStorageObject<T>: StorageObject<T>, NSDiscardableContent {
+    class BackgroundKeepingStorageObject<T>: StorageObject<T>, KFDiscardableContent {
         var accessing = true
         func beginContentAccess() -> Bool {
             if value != nil {

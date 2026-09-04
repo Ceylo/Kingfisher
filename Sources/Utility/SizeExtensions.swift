@@ -24,7 +24,9 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#if canImport(CoreGraphics)
+#if os(Android)
+import Foundation
+#else
 import CoreGraphics
 #endif
 

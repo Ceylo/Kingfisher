@@ -25,6 +25,9 @@
 //  THE SOFTWARE.
 
 import Foundation
+#if os(Android)
+import FoundationNetworking
+#endif
 
 /// The ``ImageDownloadRedirectHandler`` is used to modify the request before redirection.
 ///

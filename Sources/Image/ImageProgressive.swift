@@ -23,24 +23,22 @@
 //  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
-
-#if !os(Android)
 import Foundation
-#if canImport(CoreGraphics)
+#if !os(Android)
 import CoreGraphics
 #endif
-#if os(macOS)
-#if canImport(AppKit)
+#if os(Android)
+import FoundationNetworking
+#elseif os(macOS)
 import AppKit
-#endif
 #else
-#if canImport(UIKit)
 import UIKit
 #endif
-#endif
 
+#if !os(Android)
 private let sharedProcessingQueue: CallbackQueue =
     .dispatch(DispatchQueue(label: "com.onevcat.Kingfisher.ImageDownloader.Process"))
+#endif
 
 /// Represents a progressive loading for images which supports this feature.
 public struct ImageProgressive: Sendable {
@@ -113,6 +111,10 @@ public struct ImageProgressive: Sendable {
         self.scanInterval = scanInterval
     }
 }
+
+// The progressive decoder below is CoreGraphics-bound, so Android keeps only the
+// `ImageProgressive` value type above — enough for the options info to stay uniform.
+#if !os(Android)
 
 // A data receiving provider to update the image. Working with an `ImageProgressive`, it helps to implement the image
 // progressive effect.
@@ -378,4 +380,5 @@ private final class ImageProgressiveSerialQueue: @unchecked Sendable {
         }
     }
 }
-#endif
+
+#endif // !os(Android)

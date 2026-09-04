@@ -25,14 +25,13 @@
 //  THE SOFTWARE.
 
 import Foundation
-#if os(macOS)
-#if canImport(AppKit)
+#if os(Android)
+import Foundation
+import FoundationNetworking
+#elseif os(macOS)
 import AppKit
-#endif
 #else
-#if canImport(UIKit)
 import UIKit
-#endif
 #endif
 
 extension Never {}
@@ -366,9 +365,11 @@ public enum KingfisherError: Error {
         ///   - source: The original source value of the task.
         ///
         /// Error Code: 5005
+        #if !os(Android)
         case notCurrentLivePhotoSourceTask(
             result: RetrieveLivePhotoResult?, error: (any Error)?, source: LivePhotoSource
         )
+        #endif
         
         /// The error happens during processing the live photo.
         ///
@@ -389,7 +390,9 @@ public enum KingfisherError: Error {
         /// ``RetrieveLivePhotoResult/info`` property for the raw values that are from the Photos framework.
         ///
         /// Error Code: 5006
+        #if !os(Android)
         case livePhotoResultError(result: RetrieveLivePhotoResult?, error: (any Error)?, source: LivePhotoSource)
+        #endif
     }
 
     // MARK: Member Cases
@@ -468,6 +471,10 @@ public enum KingfisherError: Error {
     }
 
     var isLowDataModeConstrained: Bool {
+        // `URLError.networkUnavailableReason` is Darwin-only.
+        #if os(Android)
+        return false
+        #else
         if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *),
            case .responseError(reason: .URLSessionError(let sessionError)) = self,
            let urlError = sessionError as? URLError,
@@ -476,6 +483,7 @@ public enum KingfisherError: Error {
             return true
         }
         return false
+        #endif
     }
 
 }
@@ -682,6 +690,7 @@ extension KingfisherError.ImageSettingErrorReason {
             return "Image data provider fails to provide data. Provider: \(provider), error: \(error)"
         case .alternativeSourcesExhausted(let errors):
             return "Image setting from alternative sources failed: \(errors)"
+        #if !os(Android)
         case .notCurrentLivePhotoSourceTask(let result, let error, let source):
             if let result = result {
                 return "Retrieving live photo resource succeeded, but this source is " +
@@ -695,6 +704,7 @@ extension KingfisherError.ImageSettingErrorReason {
         case .livePhotoResultError(let result, let error, let source):
             return "An error occurred while processing live photo. Source: \(source). " +
                    "Result: \(String(describing: result)). Error: \(String(describing: error))"
+        #endif
         }
     }
     
@@ -704,8 +714,10 @@ extension KingfisherError.ImageSettingErrorReason {
         case .notCurrentSourceTask: return 5002
         case .dataProviderError: return 5003
         case .alternativeSourcesExhausted: return 5004
+        #if !os(Android)
         case .notCurrentLivePhotoSourceTask: return 5005
         case .livePhotoResultError: return 5006
+        #endif
         }
     }
 }

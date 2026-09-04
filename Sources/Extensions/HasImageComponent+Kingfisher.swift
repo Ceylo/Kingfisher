@@ -23,8 +23,8 @@
 //  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
-
 #if !os(Android)
+
 public protocol KingfisherImageSettable: KingfisherCompatible {
     @MainActor func setImage(
         _ image: KFCrossPlatformImage?,
@@ -50,9 +50,7 @@ extension KingfisherHasImageComponent {
 }
 
 #if canImport(AppKit) && !targetEnvironment(macCatalyst)
-#if canImport(AppKit)
 import AppKit
-#endif
 @available(macOS 13.0, *)
 extension NSComboButton: KingfisherHasImageComponent {}
 @available(macOS 13.0, *)
@@ -67,9 +65,7 @@ extension NSCell: KingfisherHasImageComponent {}
 #endif
 
 #if canImport(UIKit) && !os(watchOS)
-#if canImport(UIKit)
 import UIKit
-#endif
 @available(iOS 13.0, tvOS 13.0, *)
 extension UIAction: KingfisherHasImageComponent {}
 @available(iOS 13.0, tvOS 13.0, *)
@@ -517,4 +513,5 @@ extension KingfisherWrapper where Base: KingfisherImageSettable {
         cancellationToken?.cancel()
     }
 }
-#endif
+
+#endif // !os(Android)

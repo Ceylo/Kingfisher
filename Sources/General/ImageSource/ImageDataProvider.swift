@@ -25,7 +25,7 @@
 //  THE SOFTWARE.
 
 import Foundation
-#if canImport(ImageIO)
+#if !os(Android)
 import ImageIO
 #endif
 
@@ -255,6 +255,7 @@ public struct RawImageDataProvider: ImageDataProvider {
 }
 
 /// A data provider that creates a thumbnail from a URL using Core Graphics.
+#if !os(Android)
 public struct ThumbnailImageDataProvider: ImageDataProvider {
     
     public enum ThumbnailImageDataProviderError: Error {
@@ -334,3 +335,4 @@ public struct ThumbnailImageDataProvider: ImageDataProvider {
         }
     }
 }
+#endif // !os(Android)

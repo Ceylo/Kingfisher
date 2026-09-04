@@ -25,29 +25,18 @@
 //  THE SOFTWARE.
 
 import Foundation
-#if canImport(ImageIO)
+#if !os(Android)
 import ImageIO
-#endif
-#if canImport(CoreGraphics)
-import CoreGraphics
 #endif
 
 #if os(Android)
-// Data-backed stub image. A plain SwiftPM package can't import SkipUI's
-// Bitmap-backed UIImage (it pulls CJNI), so on Android the pure-Swift
-// downloader/cache traffic in Data and the app module decodes for display.
-public final class KFCrossPlatformImage: @unchecked Sendable {
-    public let data: Data
-    public var kfSize: CGSize
-    public init(data: Data, size: CGSize = .zero) {
-        self.data = data
-        self.kfSize = size
-    }
-}
+// Skip's SkipSwiftUI vends a Bitmap-backed `UIImage` with the four entry points
+// Kingfisher's decode seam needs — see Sources/Image/Image.swift. Reaching it is why
+// this package carries the skipstone plugin and an unconditional SkipFuseUI edge.
+import SkipSwiftUI
+public typealias KFCrossPlatformImage       = SkipSwiftUI.UIImage
 #elseif os(macOS)
-#if canImport(AppKit)
 import AppKit
-#endif
 public typealias KFCrossPlatformImage       = NSImage
 public typealias KFCrossPlatformView        = NSView
 public typealias KFCrossPlatformColor       = NSColor
@@ -61,9 +50,7 @@ extension KFCrossPlatformImage: @retroactive @unchecked Sendable { }
 extension KFCrossPlatformImage: @unchecked Sendable { }
 #endif // compiler(>=6)
 #else // os(macOS)
-#if canImport(UIKit)
 import UIKit
-#endif
 public typealias KFCrossPlatformImage       = UIImage
 public typealias KFCrossPlatformColor       = UIColor
 #if !os(watchOS)

@@ -23,14 +23,12 @@
 //  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
-
 #if !os(Android)
+
 #if !os(watchOS)
 
 #if canImport(UIKit)
-#if canImport(UIKit)
 import UIKit
-#endif
 
 @MainActor
 extension KingfisherWrapper where Base: UIButton {
@@ -338,4 +336,5 @@ extension KingfisherWrapper where Base: UIButton {
 #endif
 
 #endif
-#endif
+
+#endif // !os(Android)

@@ -25,11 +25,16 @@
 //  THE SOFTWARE.
 
 import Foundation
+#if os(Android)
+import FoundationNetworking
+#endif
 
 /// Represents the delegate object of the downloader session.
 ///
 /// It also behaves like a task manager for downloading.
+#if !os(Android)
 @objc(KFSessionDelegate) // Fix for ObjC header name conflicting. https://github.com/onevcat/Kingfisher/issues/1530
+#endif
 open class SessionDelegate: NSObject, @unchecked Sendable {
 
     typealias SessionChallengeFunc = (

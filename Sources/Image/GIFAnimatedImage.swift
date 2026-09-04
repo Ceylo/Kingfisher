@@ -25,7 +25,7 @@
 //  THE SOFTWARE.
 
 import Foundation
-#if canImport(ImageIO)
+#if !os(Android)
 import ImageIO
 #endif
 
@@ -70,6 +70,8 @@ public struct ImageCreatingOptions: Equatable {
         self.onlyFirstFrame = onlyFirstFrame
     }
 }
+
+#if !os(Android)
 
 /// Represents the decoding for a GIF image. This class extracts frames from an ``ImageFrameSource``, and then
 /// holds the images for later use.
@@ -205,3 +207,4 @@ struct CGImageFrameSource: ImageFrameSource {
     }
 }
 
+#endif // !os(Android)

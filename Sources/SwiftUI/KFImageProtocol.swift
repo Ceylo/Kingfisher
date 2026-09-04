@@ -24,12 +24,9 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#if !os(Android)
 #if canImport(SwiftUI) && canImport(Combine)
 import SwiftUI
-#if canImport(Combine)
 import Combine
-#endif
 
 
 /// Represents a view that is compatible with Kingfisher in SwiftUI.
@@ -141,5 +138,4 @@ extension KFImageProtocol {
 }
 
 
-#endif
 #endif
