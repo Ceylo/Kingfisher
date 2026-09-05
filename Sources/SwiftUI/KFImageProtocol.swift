@@ -24,9 +24,15 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#if canImport(SwiftUI) && canImport(Combine)
+// No `#if canImport(SwiftUI) && canImport(Combine)` gate any more: every platform this
+// fork supports has SwiftUI (Android through SkipSwiftUI), and skipstone's bridge
+// generator silently drops a file whose top-level `#if` it cannot evaluate — which left
+// `KFImageRenderer` without the Kotlin glue its `@State` needs, so `KFImage` rendered
+// nothing at all on Android. Only `import Combine` is still conditional.
 import SwiftUI
+#if !os(Android)
 import Combine
+#endif
 
 
 /// Represents a view that is compatible with Kingfisher in SwiftUI.
@@ -138,4 +144,3 @@ extension KFImageProtocol {
 }
 
 
-#endif

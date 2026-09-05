@@ -24,9 +24,15 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#if canImport(SwiftUI) && canImport(Combine)
+// No `#if canImport(SwiftUI) && canImport(Combine)` gate any more: every platform this
+// fork supports has SwiftUI (Android through SkipSwiftUI), and skipstone's bridge
+// generator silently drops a file whose top-level `#if` it cannot evaluate — which left
+// `KFImageRenderer` without the Kotlin glue its `@State` needs, so `KFImage` rendered
+// nothing at all on Android. Only `import Combine` is still conditional.
 import SwiftUI
+#if !os(Android)
 import Combine
+#endif
 
 /// Represents an image view in SwiftUI that manages its content using Kingfisher.
 ///
@@ -67,7 +73,7 @@ import Combine
 /// over visual consistency.
 ///
 @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-public struct KFImage: KFImageProtocol {
+public struct KFImage: KFImageProtocol, View {
     
     /// Represent the wrapping context of the image view.
     ///
@@ -101,7 +107,13 @@ extension KFImage {
         capInsets: EdgeInsets = EdgeInsets(),
         resizingMode: Image.ResizingMode = .stretch) -> KFImage
     {
-        configure { $0.resizable(capInsets: capInsets, resizingMode: resizingMode) }
+        #if os(Android)
+        // SkipSwiftUI only offers the no-argument form, which is `.stretch` with zero
+        // cap insets — the defaults here, and all FurAffinity asks for.
+        return configure { $0.resizable() }
+        #else
+        return configure { $0.resizable(capInsets: capInsets, resizingMode: resizingMode) }
+        #endif
     }
 
     public func renderingMode(_ renderingMode: Image.TemplateRenderingMode?) -> KFImage {
@@ -133,7 +145,7 @@ extension KFImage {
     }
 }
 
-#if DEBUG
+#if DEBUG && !os(Android)
 @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
 struct KFImage_Previews: PreviewProvider {
     static var previews: some View {
@@ -151,5 +163,4 @@ struct KFImage_Previews: PreviewProvider {
         }
     }
 }
-#endif
 #endif

@@ -24,19 +24,59 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#if canImport(SwiftUI) && canImport(Combine)
+// No `#if canImport(SwiftUI) && canImport(Combine)` gate any more: every platform this
+// fork supports has SwiftUI (Android through SkipSwiftUI), and skipstone's bridge
+// generator silently drops a file whose top-level `#if` it cannot evaluate — which left
+// `KFImageRenderer` without the Kotlin glue its `@State` needs, so `KFImage` rendered
+// nothing at all on Android. Only `import Combine` is still conditional.
 import SwiftUI
+#if !os(Android)
 import Combine
+#endif
+
+/// `ObservableObject` is Combine's, which Android does not have. The binder there is
+/// `@Observable` instead and needs no protocol, so this is an empty marker.
+#if os(Android)
+protocol KFObservableObject: AnyObject {}
+#else
+typealias KFObservableObject = ObservableObject
+#endif
+
+extension Progress {
+    /// `Progress()` is Darwin-only; swift-corelibs-foundation requires a count.
+    static var kfNew: Progress {
+        #if os(Android)
+        Progress(totalUnitCount: 0)
+        #else
+        Progress()
+        #endif
+    }
+}
 
 @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
 extension KFImage {
 
     /// Represents a binder for `KFImage`. It takes responsibility as an `ObjectBinding` and performs
     /// image downloading and progress reporting based on `KingfisherManager`.
+    ///
+    /// Android has no Combine, hence no `ObservableObject`: there the binder is
+    /// `@Observable` and `KFImageRenderer` holds it in a `@State` instead of a
+    /// `@StateObject`.
     @MainActor
-    class ImageBinder: ObservableObject {
+    #if os(Android)
+    @Observable
+    #endif
+    class ImageBinder: KFObservableObject {
         
         init() {}
+
+        /// `objectWillChange.send()`, or nothing at all under Observation — where
+        /// writing an observed property *is* the notification.
+        private func notifyChange() {
+            #if !os(Android)
+            objectWillChange.send()
+            #endif
+        }
 
         var downloadTask: DownloadTask?
         private var loading = false
@@ -51,9 +91,28 @@ extension KFImage {
 
         private(set) var animating = false
 
-        var loadedImage: KFCrossPlatformImage? = nil { willSet { objectWillChange.send() } }
-        var failureView: (() -> AnyView)? = nil { willSet { objectWillChange.send() } }
-        var progress: Progress = .init()
+        /// The animation the load transition should run under, on platforms where the
+        /// renderer applies it rather than the binder. See ``applyingAnimation(_:_:)``.
+        private(set) var loadAnimation: Animation? = nil
+
+        /// Runs `changes` under `animation`.
+        ///
+        /// SkipUI's `withAnimation` marks the whole Compose frame, so an image fading in
+        /// would animate every unrelated list on screen — and their `scrollTo`. On
+        /// Android the animation is therefore handed to `KFImageRenderer`, which applies
+        /// it with `.animation(_:value:)` keyed on `loaded`.
+        private func applyingAnimation(_ animation: Animation, _ changes: () -> Void) {
+            #if os(Android)
+            loadAnimation = animation
+            changes()
+            #else
+            withAnimation(animation, changes)
+            #endif
+        }
+
+        var loadedImage: KFCrossPlatformImage? = nil { willSet { notifyChange() } }
+        var failureView: (() -> AnyView)? = nil { willSet { notifyChange() } }
+        var progress: Progress = .kfNew
 
         func markLoading() {
             loading = true
@@ -62,7 +121,7 @@ extension KFImage {
         func markLoaded(sendChangeEvent: Bool) {
             loaded = true
             if sendChangeEvent {
-                objectWillChange.send()
+                notifyChange()
             }
         }
 
@@ -83,7 +142,7 @@ extension KFImage {
 
             loading = true
             
-            progress = .init()
+            progress = .kfNew
             downloadTask = KingfisherManager.shared
                 .retrieveImage(
                     with: source,
@@ -118,7 +177,7 @@ extension KFImage {
 
                                     let animation = context.swiftUIAnimation ?? .default
                                     CallbackQueueMain.async {
-                                        withAnimation(animation) {
+                                        self.applyingAnimation(animation) {
                                             self.markLoaded(sendChangeEvent: true)
                                         }
                                         self.animating = false
@@ -130,7 +189,7 @@ extension KFImage {
 
                                     let animation = Animation.linear(duration: fadeDuration)
                                     CallbackQueueMain.async {
-                                        withAnimation(animation) {
+                                        self.applyingAnimation(animation) {
                                             // Trigger the view render to apply the animation.
                                             self.markLoaded(sendChangeEvent: true)
                                         }
@@ -166,7 +225,7 @@ extension KFImage {
         private func updateProgress(downloaded: Int64, total: Int64) {
             progress.totalUnitCount = total
             progress.completedUnitCount = downloaded
-            objectWillChange.send()
+            notifyChange()
         }
 
         /// Cancels the download task if it is in progress.
@@ -177,16 +236,23 @@ extension KFImage {
         }
         
         /// Restores the download task priority to default if it is in progress.
+        ///
+        /// A no-op on Android, whose downloader replaces the transport and so has no
+        /// `URLSessionTask` to reprioritise; its own two-FIFO gate does the pacing.
         func restorePriorityOnAppear() {
+            #if !os(Android)
             guard let downloadTask = downloadTask, loading == true else { return }
             downloadTask.sessionTask?.task.priority = URLSessionTask.defaultPriority
+            #endif
         }
         
-        /// Reduce the download task priority if it is in progress.
+        /// Reduce the download task priority if it is in progress. See
+        /// ``restorePriorityOnAppear()`` for why this does nothing on Android.
         func reducePriorityOnDisappear() {
+            #if !os(Android)
             guard let downloadTask = downloadTask, loading == true else { return }
             downloadTask.sessionTask?.task.priority = URLSessionTask.lowPriority
+            #endif
         }
     }
 }
-#endif

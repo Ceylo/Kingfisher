@@ -24,16 +24,30 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#if canImport(SwiftUI) && canImport(Combine)
+// No `#if canImport(SwiftUI) && canImport(Combine)` gate any more: every platform this
+// fork supports has SwiftUI (Android through SkipSwiftUI), and skipstone's bridge
+// generator silently drops a file whose top-level `#if` it cannot evaluate — which left
+// `KFImageRenderer` without the Kotlin glue its `@State` needs, so `KFImage` rendered
+// nothing at all on Android. Only `import Combine` is still conditional.
 import SwiftUI
+#if !os(Android)
 import Combine
+#endif
 
 /// A Kingfisher compatible SwiftUI `View` to load an image from a `Source`.
 /// Declaring a `KFImage` in a `View`'s body to trigger loading from the given `Source`.
 @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
 struct KFImageRenderer<HoldingView> : View where HoldingView: KFImageHoldingView & Sendable {
     
+    // Not `private`, and `@State` rather than `@StateObject` on Android: there is no
+    // Combine there, and skipstone generates a bridged view's Kotlin glue from the
+    // property list it can see — a private one is silently left out and the view never
+    // recomposes.
+    #if os(Android)
+    @State var binder: KFImage.ImageBinder
+    #else
     @StateObject var binder: KFImage.ImageBinder = .init()
+    #endif
     let context: KFImage.Context<HoldingView>
     
     init(context: KFImage.Context<HoldingView>) {
@@ -41,7 +55,11 @@ struct KFImageRenderer<HoldingView> : View where HoldingView: KFImageHoldingView
     }
 
     init(context: KFImage.Context<HoldingView>, binder: KFImage.ImageBinder) {
+        #if os(Android)
+        _binder = State(wrappedValue: binder)
+        #else
         _binder = StateObject(wrappedValue: binder)
+        #endif
         self.context = context
     }
 
@@ -118,6 +136,12 @@ struct KFImageRenderer<HoldingView> : View where HoldingView: KFImageHoldingView
         //
         // It should be a bug in iOS 16, I guess it is some kinds of over-optimization in list cell loading caused it.
         .onAppear()
+        // On Android the binder does not call `withAnimation` — it marks the whole
+        // Compose frame — so the load transition is applied here instead, keyed on the
+        // `Bool` that flips when the image becomes renderable.
+        #if os(Android)
+        .animation(binder.loadAnimation, value: binder.loaded)
+        #endif
     }
     
     @ViewBuilder
@@ -150,13 +174,30 @@ struct KFImageRenderer<HoldingView> : View where HoldingView: KFImageHoldingView
 extension Image {
     // Creates an Image with either UIImage or NSImage.
     init(crossPlatformImage: KFCrossPlatformImage?) {
-        #if canImport(UIKit)
+        #if os(Android)
+        // `UIImage()` does not exist on Android — SkipSwiftUI's is Bitmap-backed and
+        // has no empty form — so a 1x1 transparent pixel stands in while loading. It is
+        // only ever rendered at `opacity(0)` and inside a zero frame.
+        self.init(uiImage: crossPlatformImage ?? .kfPlaceholderPixel)
+        #elseif canImport(UIKit)
         self.init(uiImage: crossPlatformImage ?? KFCrossPlatformImage())
         #elseif canImport(AppKit)
         self.init(nsImage: crossPlatformImage ?? KFCrossPlatformImage())
         #endif
     }
 }
+
+#if os(Android)
+extension KFCrossPlatformImage {
+    /// A 1x1 fully transparent PNG, decoded once.
+    static let kfPlaceholderPixel: KFCrossPlatformImage = {
+        let png = Data(base64Encoded:
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+        )!
+        return KFCrossPlatformImage(data: png, scale: 1)!
+    }()
+}
+#endif
 
 #if canImport(UIKit)
 @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
@@ -175,5 +216,4 @@ extension UIImage.Orientation {
         }
     }
 }
-#endif
 #endif
