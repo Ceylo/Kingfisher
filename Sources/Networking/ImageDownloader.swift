@@ -88,6 +88,17 @@ public final class DownloadTask: @unchecked Sendable {
         _providerTask = providerTask
     }
 
+    /// Creates a task backed by a Swift concurrency `Task`, for an ``ImageDownloader``
+    /// subclass outside this module that does its own transport.
+    ///
+    /// Android's FurAffinity build overrides ``ImageDownloader/downloadImage(with:options:completionHandler:)``
+    /// to go through OkHttp, and needs to hand ``KingfisherManager`` back a task that
+    /// is both cancellable and ``isInitialized``. Every other initializer here is
+    /// internal, so without this the override cannot return anything usable.
+    public convenience init(cancelling work: Task<Void, Never>) {
+        self.init(providerTask: work)
+    }
+
     private var _linkedTask: DownloadTask? = nil
 
     private var _providerTask: Task<Void, Never>? = nil
