@@ -45,12 +45,6 @@ struct KFImageRenderer<HoldingView> : View where HoldingView: KFImageHoldingView
     // recomposes.
     #if os(Android)
     @State var binder: KFImage.ImageBinder
-    /// Whether a placeholder has ever been on screen for this view, and whether the
-    /// image has since had a composition of its own. Together they hold the placeholder
-    /// across the hand-off — see `showPlaceholder` in `body`. Not `private`, and not
-    /// inside `#if DEBUG`, for the same bridging reason as `binder`.
-    @State var placeholderWasShown = false
-    @State var imageHadItsOwnPass = false
     #else
     @StateObject var binder: KFImage.ImageBinder = .init()
     #endif
@@ -75,40 +69,27 @@ struct KFImageRenderer<HoldingView> : View where HoldingView: KFImageHoldingView
             DispatchQueue.main.async { binder.start(context: context) }
         }
 
-        // Draws an image that is already in the memory cache on this very composition.
-        // Same guard as the block above, which is also the precedent for mutating the
-        // binder straight from `body`. See ``ImageBinder/resolveFromMemoryCache(context:)``
-        // for why only this layer can close the gap, and only for a cache *read*.
-        #if os(Android)
-        if !binder.loadingOrSucceeded && !binder.animating {
-            binder.resolveFromMemoryCache(context: context)
-        }
-        #endif
-
         return ZStack {
             let isImageRenderable = binder.loadedImage != nil && binder.loaded
 
-            // Which pass the placeholder is released on. SwiftUI drops it in the same
-            // pass that first makes the image renderable and that is fine there; SkipUI
-            // is not guaranteed to paint the new bitmap in that pass, so the row is laid
-            // out with neither the placeholder nor the image in it for one frame. Keeping
-            // the placeholder one pass longer closes that: it stays on top until the
-            // image has had a composition of its own, which the `onAppear` below reports
-            // a pass later (a Compose `SideEffect`).
-            //
-            // `placeholderWasShown` is what keeps this from *causing* a blink: when the
-            // image resolves on the very first composition — a memory-cache hit, see
-            // `ImageBinder.resolveFromMemoryCache` — no placeholder was ever on screen,
-            // so there is no hand-off to cover and none is inserted.
-            #if os(Android)
-            let showPlaceholder = !isImageRenderable
-                || (placeholderWasShown && !imageHadItsOwnPass)
-            #else
-            let showPlaceholder = !isImageRenderable
-            #endif
-
             if context.swiftUITransition == nil {
                 // Fade transition or no transition: use opacity control
+                #if os(Android)
+                // The image draws out of `binder.imageHolder`, which is empty until the
+                // bitmap arrives, so the node needs neither the opacity nor the zero-frame
+                // gate to stay invisible — and *not* gating it is the point: both are read
+                // during composition, which is exactly what put the bitmap a frame late.
+                // Composed from the first pass and painted the moment the holder is set, it
+                // is already under the placeholder when that is released, so the hand-off
+                // cannot show a frame with neither.
+                //
+                // The gate is kept only for the passes a load transition owns: `animating`
+                // is set by the binder between "the bitmap is here" and "run the fade", and
+                // the fade needs the image to start from transparent. A memory-cache hit
+                // never fades, so it never takes this branch.
+                renderedImage()
+                    .opacity(binder.animating && !isImageRenderable ? 0.0 : 1.0)
+                #else
                 // Keep the image branch for external transitions without affecting layout while no
                 // image is loaded. The zero frame is intentionally tied to `loadedImage` instead of
                 // `isImageRenderable`: it is released in the render pass that sets `loadedImage`,
@@ -120,12 +101,13 @@ struct KFImageRenderer<HoldingView> : View where HoldingView: KFImageHoldingView
                         width: binder.loadedImage == nil ? 0 : nil,
                         height: binder.loadedImage == nil ? 0 : nil
                     )
+                #endif
             } else if isImageRenderable {
                 // SwiftUI loadTransition: insert/remove view for proper transition behavior
                 renderedImage()
             }
 
-            if showPlaceholder {
+            if !isImageRenderable {
                 ZStack {
                     // Priority: failureView > placeholder > Color.clear
                     // failureView is only set when image loading fails
@@ -138,9 +120,6 @@ struct KFImageRenderer<HoldingView> : View where HoldingView: KFImageHoldingView
                     }
                 }
                 .onAppear { [weak binder = self.binder] in
-                    #if os(Android)
-                    placeholderWasShown = true
-                    #endif
                     guard let binder = binder else {
                         return
                     }
@@ -163,16 +142,6 @@ struct KFImageRenderer<HoldingView> : View where HoldingView: KFImageHoldingView
                     }
                 }
             }
-
-            // Reports, one composition later, that the image has had a pass of its own.
-            // Zero-framed: a bare `Color` would expand and size the `ZStack`.
-            #if os(Android)
-            if isImageRenderable && placeholderWasShown && !imageHadItsOwnPass {
-                Color.clear
-                    .frame(width: 0, height: 0)
-                    .onAppear { imageHadItsOwnPass = true }
-            }
-            #endif
         }
         // Workaround for https://github.com/onevcat/Kingfisher/issues/1988
         // on iOS 16 there seems to be a bug that when in a List, the `onAppear` of the `ZStack` above in the
@@ -204,8 +173,14 @@ struct KFImageRenderer<HoldingView> : View where HoldingView: KFImageHoldingView
     
     @ViewBuilder
     private var configuredImage: some View {
+        #if os(Android)
+        let baseImage = HoldingView.created(fromHolder: binder.imageHolder, context: context)
+            ?? HoldingView.created(from: binder.loadedImage, context: context)
+        #else
+        let baseImage = HoldingView.created(from: binder.loadedImage, context: context)
+        #endif
         let configuredImage = context.configurations
-            .reduce(HoldingView.created(from: binder.loadedImage, context: context)) {
+            .reduce(baseImage) {
                 current, config in config(current)
             }
         

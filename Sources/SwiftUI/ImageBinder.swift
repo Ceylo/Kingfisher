@@ -110,7 +110,33 @@ extension KFImage {
             #endif
         }
 
+        #if os(Android)
+        /// What the rendered image actually draws on Android, read in Compose's **draw**
+        /// phase.
+        ///
+        /// A SwiftUI `Image` is a value, so the bitmap in it can only reach the screen
+        /// through a recomposition — and `onAppear`, where the load starts, compiles to a
+        /// Compose `SideEffect`, which runs after the composition it belongs to has been
+        /// applied. An image the memory cache already holds therefore missed its own first
+        /// frame. Writing to the holder repaints without recomposing, so the bitmap is
+        /// painted in whichever frame it arrives in, and the image node — composed from the
+        /// first pass, drawing nothing until this is set — never has to be swapped in for
+        /// the placeholder. Same shape as Coil's `AsyncImagePainter`.
+        let imageHolder = ImageHolder()
+        #endif
+
         var loadedImage: KFCrossPlatformImage? = nil { willSet { notifyChange() } }
+
+        /// Assigns ``loadedImage`` and, on Android, mirrors it into ``imageHolder``.
+        /// Deliberately not a `didSet` on the property: the class is `@Observable` there
+        /// and the macro rewrites stored properties, so an observer on one is not
+        /// something to depend on.
+        func setLoadedImage(_ image: KFCrossPlatformImage?) {
+            loadedImage = image
+            #if os(Android)
+            imageHolder.setImage(image)
+            #endif
+        }
         var failureView: (() -> AnyView)? = nil { willSet { notifyChange() } }
         var progress: Progress = .kfNew
 
@@ -125,73 +151,6 @@ extension KFImage {
             }
         }
 
-        #if os(Android)
-        /// Puts an already-decoded image on the view's **first** composition, instead of
-        /// one frame later.
-        ///
-        /// SkipUI compiles `onAppear` to a Compose `SideEffect`, which runs *after* the
-        /// composition it belongs to has been applied — so the load `KFImageRenderer`
-        /// starts from the placeholder's `onAppear` cannot affect the frame being built,
-        /// and even a memory hit costs a blank frame. Compose forbids fixing that at the
-        /// `onAppear` layer: a composition may be discarded or replayed, so arbitrary
-        /// side effects must not run during one. A memory-cache read is idempotent and
-        /// side-effect-free, so it is one of the few things that legally may — which is
-        /// why this lives here and not in SkipUI.
-        ///
-        /// The `onSuccess` callback is still delivered asynchronously, exactly as
-        /// ``start(context:)`` delivers it: it is caller code, and caller code is
-        /// precisely what may not run during composition.
-        func resolveFromMemoryCache<HoldingView: KFImageHoldingView>(
-            context: Context<HoldingView>
-        ) where HoldingView: Sendable {
-            guard let source = context.source else { return }
-
-            let options = context.options
-            // Anything that makes a memory hit not what `KingfisherManager` would
-            // deliver falls back to the normal path rather than being emulated here:
-            // `forceRefresh` always downloads, `fromMemoryCacheOrRefresh` is not what
-            // this fast path expresses, and a serializer that keeps the original data
-            // re-runs the processor off the calling thread.
-            guard !options.forceRefresh,
-                  !options.fromMemoryCacheOrRefresh,
-                  !options.cacheSerializer.originalDataUsed
-            else { return }
-
-            // The target cache, never `ImageCache.default`: this is a library, and
-            // `options.targetCache` is what the manager itself would read.
-            let cache = options.targetCache ?? KingfisherManager.shared.cache
-            // Keyed on the processor identifier too — that is `retrieveImageInMemoryCache`'s
-            // own `computedKey`.
-            guard var image = cache.retrieveImageInMemoryCache(
-                forKey: source.cacheKey,
-                options: options
-            ) else { return }
-
-            if let modifier = options.imageModifier {
-                image = modifier.modify(image)
-            }
-
-            // `markLoaded` before `loadedImage`, the no-fade ordering `start(context:)`
-            // uses. Anything that observes the two writes in between then sees
-            // `loaded == true` with no image — still not renderable, still the
-            // placeholder. The reverse order gives the image its real frame while it is
-            // still at `opacity(0)`, which is the gap this closes.
-            markLoaded(sendChangeEvent: false)
-            loadedImage = image
-
-            let result = RetrieveImageResult(
-                image: image,
-                cacheType: .memory,
-                source: source,
-                originalSource: source,
-                data: { [image] in options.cacheSerializer.data(with: image, original: nil) }
-            )
-            CallbackQueueMain.async {
-                context.onSuccessDelegate.call(result)
-            }
-        }
-        #endif
-
         func start<HoldingView: KFImageHoldingView>(context: Context<HoldingView>) where HoldingView: Sendable {
             guard let source = context.source else {
                 CallbackQueueMain.currentOrAsync {
@@ -199,7 +158,7 @@ extension KFImage {
                     if let view = context.failureView {
                         self.failureView = view
                     } else if let image = context.options.onFailureImage {
-                        self.loadedImage = image
+                        self.setLoadedImage(image)
                     }
                     self.loading = false
                     self.markLoaded(sendChangeEvent: false)
@@ -221,7 +180,7 @@ extension KFImage {
                     progressiveImageSetter: { image in
                         CallbackQueueMain.currentOrAsync {
                             self.markLoaded(sendChangeEvent: true)
-                            self.loadedImage = image
+                            self.setLoadedImage(image)
                         }
                     },
                     completionHandler: { [weak self] result in
@@ -240,7 +199,7 @@ extension KFImage {
                                    context.shouldApplyFade(cacheType: value.cacheType) {
                                     // Apply SwiftUI loadTransition with custom animation (higher priority than fade)
                                     self.animating = true
-                                    self.loadedImage = value.image
+                                    self.setLoadedImage(value.image)
 
                                     let animation = context.swiftUIAnimation ?? .default
                                     CallbackQueueMain.async {
@@ -252,7 +211,7 @@ extension KFImage {
                                     }
                                 } else if let fadeDuration = context.fadeTransitionDuration(cacheType: value.cacheType) {
                                     self.animating = true
-                                    self.loadedImage = value.image
+                                    self.setLoadedImage(value.image)
 
                                     let animation = Animation.linear(duration: fadeDuration)
                                     CallbackQueueMain.async {
@@ -265,7 +224,7 @@ extension KFImage {
                                     }
                                 } else {
                                     self.markLoaded(sendChangeEvent: false)
-                                    self.loadedImage = value.image
+                                    self.setLoadedImage(value.image)
 
                                     CallbackQueueMain.async {
                                         context.onSuccessDelegate.call(value)
@@ -277,7 +236,7 @@ extension KFImage {
                                 if let view = context.failureView {
                                     self.failureView = view
                                 } else if let image = context.options.onFailureImage {
-                                    self.loadedImage = image
+                                    self.setLoadedImage(image)
                                 }
                                 self.markLoaded(sendChangeEvent: false)
                             }

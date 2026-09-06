@@ -97,6 +97,12 @@ extension Image: KFImageHoldingView {
     public static func created(from image: KFCrossPlatformImage?, context: KFImage.Context<Self>) -> Image {
         Image(crossPlatformImage: image)
     }
+
+    #if os(Android)
+    public static func created(fromHolder holder: ImageHolder, context: KFImage.Context<Self>) -> Image? {
+        Image(holder: holder)
+    }
+    #endif
 }
 
 // MARK: - Image compatibility.

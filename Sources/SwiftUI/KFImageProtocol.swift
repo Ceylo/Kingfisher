@@ -116,7 +116,24 @@ extension KFImageProtocol {
 public protocol KFImageHoldingView: View {
     associatedtype RenderingView
     static func created(from image: KFCrossPlatformImage?, context: KFImage.Context<Self>) -> Self
+
+    #if os(Android)
+    /// A view that draws whatever `holder` holds, read in Compose's **draw** phase rather
+    /// than baked into the view value at composition. Returning nil falls back to
+    /// ``created(from:context:)`` and the frame of latency that comes with it — see
+    /// ``KFImage/ImageBinder/imageHolder``.
+    static func created(fromHolder holder: ImageHolder, context: KFImage.Context<Self>) -> Self?
+    #endif
 }
+
+#if os(Android)
+@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+extension KFImageHoldingView {
+    public static func created(fromHolder holder: ImageHolder, context: KFImage.Context<Self>) -> Self? {
+        return nil
+    }
+}
+#endif
 
 @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
 extension KFImageProtocol {
