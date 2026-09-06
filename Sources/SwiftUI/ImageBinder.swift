@@ -125,6 +125,73 @@ extension KFImage {
             }
         }
 
+        #if os(Android)
+        /// Puts an already-decoded image on the view's **first** composition, instead of
+        /// one frame later.
+        ///
+        /// SkipUI compiles `onAppear` to a Compose `SideEffect`, which runs *after* the
+        /// composition it belongs to has been applied — so the load `KFImageRenderer`
+        /// starts from the placeholder's `onAppear` cannot affect the frame being built,
+        /// and even a memory hit costs a blank frame. Compose forbids fixing that at the
+        /// `onAppear` layer: a composition may be discarded or replayed, so arbitrary
+        /// side effects must not run during one. A memory-cache read is idempotent and
+        /// side-effect-free, so it is one of the few things that legally may — which is
+        /// why this lives here and not in SkipUI.
+        ///
+        /// The `onSuccess` callback is still delivered asynchronously, exactly as
+        /// ``start(context:)`` delivers it: it is caller code, and caller code is
+        /// precisely what may not run during composition.
+        func resolveFromMemoryCache<HoldingView: KFImageHoldingView>(
+            context: Context<HoldingView>
+        ) where HoldingView: Sendable {
+            guard let source = context.source else { return }
+
+            let options = context.options
+            // Anything that makes a memory hit not what `KingfisherManager` would
+            // deliver falls back to the normal path rather than being emulated here:
+            // `forceRefresh` always downloads, `fromMemoryCacheOrRefresh` is not what
+            // this fast path expresses, and a serializer that keeps the original data
+            // re-runs the processor off the calling thread.
+            guard !options.forceRefresh,
+                  !options.fromMemoryCacheOrRefresh,
+                  !options.cacheSerializer.originalDataUsed
+            else { return }
+
+            // The target cache, never `ImageCache.default`: this is a library, and
+            // `options.targetCache` is what the manager itself would read.
+            let cache = options.targetCache ?? KingfisherManager.shared.cache
+            // Keyed on the processor identifier too — that is `retrieveImageInMemoryCache`'s
+            // own `computedKey`.
+            guard var image = cache.retrieveImageInMemoryCache(
+                forKey: source.cacheKey,
+                options: options
+            ) else { return }
+
+            if let modifier = options.imageModifier {
+                image = modifier.modify(image)
+            }
+
+            // `markLoaded` before `loadedImage`, the no-fade ordering `start(context:)`
+            // uses. Anything that observes the two writes in between then sees
+            // `loaded == true` with no image — still not renderable, still the
+            // placeholder. The reverse order gives the image its real frame while it is
+            // still at `opacity(0)`, which is the gap this closes.
+            markLoaded(sendChangeEvent: false)
+            loadedImage = image
+
+            let result = RetrieveImageResult(
+                image: image,
+                cacheType: .memory,
+                source: source,
+                originalSource: source,
+                data: { [image] in options.cacheSerializer.data(with: image, original: nil) }
+            )
+            CallbackQueueMain.async {
+                context.onSuccessDelegate.call(result)
+            }
+        }
+        #endif
+
         func start<HoldingView: KFImageHoldingView>(context: Context<HoldingView>) where HoldingView: Sendable {
             guard let source = context.source else {
                 CallbackQueueMain.currentOrAsync {

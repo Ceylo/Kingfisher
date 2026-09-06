@@ -68,7 +68,17 @@ struct KFImageRenderer<HoldingView> : View where HoldingView: KFImageHoldingView
             binder.markLoading()
             DispatchQueue.main.async { binder.start(context: context) }
         }
-        
+
+        // Draws an image that is already in the memory cache on this very composition.
+        // Same guard as the block above, which is also the precedent for mutating the
+        // binder straight from `body`. See ``ImageBinder/resolveFromMemoryCache(context:)``
+        // for why only this layer can close the gap, and only for a cache *read*.
+        #if os(Android)
+        if !binder.loadingOrSucceeded && !binder.animating {
+            binder.resolveFromMemoryCache(context: context)
+        }
+        #endif
+
         return ZStack {
             let isImageRenderable = binder.loadedImage != nil && binder.loaded
 
