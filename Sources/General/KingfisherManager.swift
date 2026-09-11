@@ -950,7 +950,24 @@ public class KingfisherManager: @unchecked Sendable {
                         return
                     }
 
-                    if options.cacheSerializer.originalDataUsed {
+                    // A cache hit must be delivered in the frame it is asked for. On Android
+                    // the image reaches the screen through `SkipUI.ImageHolder`, read in
+                    // Compose's draw phase, so a write that lands before the frame's traversal
+                    // is painted in that frame — and one that lands after it is a frame of
+                    // nothing. A round trip to the processing queue and back to main is always
+                    // after it: the return hop is a `Handler` post, and the frame it was posted
+                    // from is itself one. Here that round trip buys nothing, because Android's
+                    // `DefaultImageProcessor.process(item: .image(_:))` returns its input
+                    // unchanged — the scaling the Apple branch does has no counterpart. So with
+                    // the default processor the reprocessing is skipped and the image is handed
+                    // over inline. A real processor still runs, off the main thread as before.
+                    #if os(Android)
+                    let reprocessCachedImage = options.processor != DefaultImageProcessor.default
+                    #else
+                    let reprocessCachedImage = true
+                    #endif
+
+                    if options.cacheSerializer.originalDataUsed && reprocessCachedImage {
                         let processor = options.processor
                         (options.processingQueue ?? self.processingQueue).execute {
                             let item = ImageProcessItem.image(image)
