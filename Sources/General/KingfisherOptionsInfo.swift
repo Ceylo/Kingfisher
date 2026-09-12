@@ -534,16 +534,29 @@ class ImageLoadingProgressSideEffect: DataReceivingSideEffect, @unchecked Sendab
     }
 
     func onDataReceived(_ session: URLSession, task: SessionDataTask, data: Data) {
+        report(received: { Int64(task.mutableDataCount) },
+               total: { task.task.response?.expectedContentLength ?? -1 })
+    }
+
+    /// Both sizes are read on the main queue, as `onDataReceived` always did.
+    func report(received: @escaping @Sendable () -> Int64, total: @escaping @Sendable () -> Int64) {
         DispatchQueue.main.async {
             guard self.onShouldApply() else { return }
-            guard let expectedContentLength = task.task.response?.expectedContentLength,
-                      expectedContentLength != -1 else
-            {
-                return
-            }
+            let expectedContentLength = total()
+            guard expectedContentLength != -1 else { return }
+            self.block(received(), expectedContentLength)
+        }
+    }
+}
 
-            let dataLength = Int64(task.mutableDataCount)
-            self.block(dataLength, expectedContentLength)
+extension KingfisherParsedOptionsInfo {
+    /// Feeds the progress block of whoever asked for this image, for an
+    /// `ImageDownloader` subclass that replaces the URLSession transport and so never
+    /// reaches `onDataReceived`. An unknown `totalSize` (-1) is dropped, as it is there.
+    public func reportDownloadProgress(receivedSize: Int64, totalSize: Int64) {
+        onDataReceived?.forEach {
+            ($0 as? ImageLoadingProgressSideEffect)?
+                .report(received: { receivedSize }, total: { totalSize })
         }
     }
 }

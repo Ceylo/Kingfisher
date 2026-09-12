@@ -249,9 +249,18 @@ extension KFImage {
         }
         
         private func updateProgress(downloaded: Int64, total: Int64) {
+            #if os(Android)
+            // A new instance, not a mutation: under Observation only a write to the
+            // stored property is seen, so changing the reference's fields would never
+            // recompose the placeholder that reads it.
+            let updated = Progress(totalUnitCount: total)
+            updated.completedUnitCount = downloaded
+            progress = updated
+            #else
             progress.totalUnitCount = total
             progress.completedUnitCount = downloaded
             notifyChange()
+            #endif
         }
 
         /// Cancels the download task if it is in progress.
