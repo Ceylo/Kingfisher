@@ -66,9 +66,7 @@ extension NSCell: KingfisherHasImageComponent {}
 
 #if canImport(UIKit) && !os(watchOS)
 import UIKit
-@available(iOS 13.0, tvOS 13.0, *)
 extension UIAction: KingfisherHasImageComponent {}
-@available(iOS 13.0, tvOS 13.0, *)
 extension UICommand: KingfisherHasImageComponent {}
 extension UIBarItem: KingfisherHasImageComponent {}
 #endif
@@ -88,17 +86,17 @@ import TVUIKit
 extension TVMonogramView: KingfisherHasImageComponent {}
 #endif
 
-struct ImagePropertyAccessor<ImageType>: Sendable {
-    let setImage: @Sendable @MainActor (ImageType?, KingfisherParsedOptionsInfo) -> Void
-    let getImage: @Sendable @MainActor () -> ImageType?
+struct ImagePropertyAccessor<Object: AnyObject, ImageType>: Sendable {
+    let setImage: @Sendable @MainActor (Object, ImageType?, KingfisherParsedOptionsInfo) -> Void
+    let getImage: @Sendable @MainActor (Object) -> ImageType?
 }
 
-struct TaskPropertyAccessor: Sendable {
-    let setTaskIdentifier: @Sendable @MainActor (Source.Identifier.Value?) -> Void
-    let getTaskIdentifier: @Sendable @MainActor () -> Source.Identifier.Value?
-    let setTask: @Sendable @MainActor (DownloadTask?) -> Void
-    let getCancellationToken: @Sendable @MainActor () -> CancellationToken?
-    let setCancellationToken: @Sendable @MainActor (CancellationToken) -> Void
+struct TaskPropertyAccessor<Object: AnyObject>: Sendable {
+    let setTaskIdentifier: @Sendable @MainActor (KingfisherWrapper<Object>, Source.Identifier.Value?) -> Void
+    let getTaskIdentifier: @Sendable @MainActor (KingfisherWrapper<Object>) -> Source.Identifier.Value?
+    let setTask: @Sendable @MainActor (KingfisherWrapper<Object>, DownloadTask?) -> Void
+    let getCancellationToken: @Sendable @MainActor (KingfisherWrapper<Object>) -> CancellationToken?
+    let setCancellationToken: @Sendable @MainActor (KingfisherWrapper<Object>, CancellationToken) -> Void
 }
 
 @MainActor
@@ -363,23 +361,32 @@ extension KingfisherWrapper where Base: KingfisherImageSettable {
         progressBlock: DownloadProgressBlock? = nil,
         completionHandler: (@MainActor @Sendable (Result<RetrieveImageResult, KingfisherError>) -> Void)? = nil
     ) -> DownloadTask? {
-        var mutatingSelf = self
         return setImage(
             with: source,
             imageAccessor: ImagePropertyAccessor(
-                setImage: { base.setImage($0, options: $1) },
-                getImage: { base.getImage() }
+                setImage: { base, image, options in
+                    base.setImage(image, options: options)
+                },
+                getImage: { base in
+                    base.getImage()
+                }
             ),
             taskAccessor: TaskPropertyAccessor(
-                setTaskIdentifier: {
-                    mutatingSelf.taskIdentifier = $0
+                setTaskIdentifier: { wrapper, identifier in
+                    wrapper.taskIdentifier = identifier
                 },
-                getTaskIdentifier: { self.taskIdentifier },
-                setTask: { task in
-                    mutatingSelf.imageTask = task
+                getTaskIdentifier: { wrapper in
+                    wrapper.taskIdentifier
                 },
-                getCancellationToken: { self.cancellationToken },
-                setCancellationToken: { mutatingSelf.cancellationToken = $0 }
+                setTask: { wrapper, task in
+                    wrapper.imageTask = task
+                },
+                getCancellationToken: { wrapper in
+                    wrapper.cancellationToken
+                },
+                setCancellationToken: { wrapper, token in
+                    wrapper.cancellationToken = token
+                }
             ),
             placeholder: placeholder,
             parsedOptions: parsedOptions,
@@ -390,11 +397,11 @@ extension KingfisherWrapper where Base: KingfisherImageSettable {
 }
 
 @MainActor
-extension KingfisherWrapper {
+extension KingfisherWrapper where Base: AnyObject {
     func setImage(
         with source: Source?,
-        imageAccessor: ImagePropertyAccessor<KFCrossPlatformImage>,
-        taskAccessor: TaskPropertyAccessor,
+        imageAccessor: ImagePropertyAccessor<Base, KFCrossPlatformImage>,
+        taskAccessor: TaskPropertyAccessor<Base>,
         placeholder: KFCrossPlatformImage? = nil,
         parsedOptions: KingfisherParsedOptionsInfo,
         progressBlock: DownloadProgressBlock? = nil,
@@ -402,8 +409,8 @@ extension KingfisherWrapper {
     ) -> DownloadTask?
     {
         guard let source = source else {
-            imageAccessor.setImage(placeholder, parsedOptions)
-            taskAccessor.setTaskIdentifier(nil)
+            imageAccessor.setImage(base, placeholder, parsedOptions)
+            taskAccessor.setTaskIdentifier(self, nil)
             completionHandler?(.failure(KingfisherError.imageSettingError(reason: .emptySource)))
             return nil
         }
@@ -414,35 +421,49 @@ extension KingfisherWrapper {
 #if os(watchOS)
         let usePlaceholderDuringLoading = !options.keepCurrentImageWhileLoading
 #else
-        let usePlaceholderDuringLoading = !options.keepCurrentImageWhileLoading || imageAccessor.getImage() == nil
+        let usePlaceholderDuringLoading = !options.keepCurrentImageWhileLoading || imageAccessor.getImage(base) == nil
 #endif
         if usePlaceholderDuringLoading {
-            imageAccessor.setImage(placeholder, options)
+            imageAccessor.setImage(base, placeholder, options)
         }
 
         let issuedIdentifier = Source.Identifier.next()
-        taskAccessor.setTaskIdentifier(issuedIdentifier)
+        taskAccessor.setTaskIdentifier(self, issuedIdentifier)
 
         let token = CancellationToken()
-        taskAccessor.getCancellationToken()?.cancel()
-        taskAccessor.setCancellationToken(token)
+        taskAccessor.getCancellationToken(self)?.cancel()
+        taskAccessor.setCancellationToken(self, token)
 
         if let block = progressBlock {
             options.onDataReceived = (options.onDataReceived ?? []) + [ImageLoadingProgressSideEffect(block)]
         }
         let finalOptions = options
 
+        // The accessors receive the target when they run, so escaping download callbacks only
+        // retain this weak box and do not extend the target's lifetime.
+        let weakBase = WeakBox(base)
         let task = KingfisherManager.shared.retrieveImage(
             with: source,
             options: finalOptions,
             downloadTaskUpdated: { task in
-                Task { @MainActor in taskAccessor.setTask(task) }
+                Task { @MainActor in
+                    guard let base = weakBase.value else { return }
+                    taskAccessor.setTask(.init(base), task)
+                }
             },
-            progressiveImageSetter: { imageAccessor.setImage($0, finalOptions) },
+            progressiveImageSetter: { image in
+                guard let base = weakBase.value else { return }
+                imageAccessor.setImage(base, image, finalOptions)
+            },
             referenceTaskIdentifierChecker: { !token.isCancelled },
             completionHandler: { result in
                 CallbackQueueMain.currentOrAsync {
-                    guard issuedIdentifier == taskAccessor.getTaskIdentifier() else {
+                    guard let base = weakBase.value else {
+                        completionHandler?(result)
+                        return
+                    }
+                    let wrapper = KingfisherWrapper(base)
+                    guard issuedIdentifier == taskAccessor.getTaskIdentifier(wrapper) else {
                         let reason: KingfisherError.ImageSettingErrorReason
                         do {
                             let value = try result.get()
@@ -455,22 +476,22 @@ extension KingfisherWrapper {
                         return
                     }
 
-                    taskAccessor.setTask(nil)
-                    taskAccessor.setTaskIdentifier(nil)
+                    taskAccessor.setTask(wrapper, nil)
+                    taskAccessor.setTaskIdentifier(wrapper, nil)
 
                     switch result {
                     case .success(let value):
-                        imageAccessor.setImage(value.image, finalOptions)
+                        imageAccessor.setImage(base, value.image, finalOptions)
                     case .failure:
                         if let image = finalOptions.onFailureImage {
-                            imageAccessor.setImage(image, finalOptions)
+                            imageAccessor.setImage(base, image, finalOptions)
                         }
                     }
                     completionHandler?(result)
                 }
             }
         )
-        taskAccessor.setTask(task)
+        taskAccessor.setTask(self, task)
         return task
     }
 }
@@ -489,7 +510,7 @@ extension KingfisherWrapper where Base: KingfisherImageSettable {
             let box: Box<Source.Identifier.Value>? = getAssociatedObject(base, &taskIdentifierKey)
             return box?.value
         }
-        set {
+        nonmutating set {
             let box = newValue.map { Box($0) }
             setRetainedAssociatedObject(base, &taskIdentifierKey, box)
         }
@@ -497,12 +518,12 @@ extension KingfisherWrapper where Base: KingfisherImageSettable {
     
     var cancellationToken: CancellationToken? {
         get { getAssociatedObject(base, &cancellationTokenKey) }
-        set { setRetainedAssociatedObject(base, &cancellationTokenKey, newValue) }
+        nonmutating set { setRetainedAssociatedObject(base, &cancellationTokenKey, newValue) }
     }
 
     private var imageTask: DownloadTask? {
         get { return getAssociatedObject(base, &imageTaskKey) }
-        set { setRetainedAssociatedObject(base, &imageTaskKey, newValue)}
+        nonmutating set { setRetainedAssociatedObject(base, &imageTaskKey, newValue)}
     }
     
     /// Cancels the image download task of the image view if it is running.

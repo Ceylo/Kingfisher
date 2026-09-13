@@ -125,20 +125,31 @@ extension KFImage {
         let imageHolder = ImageHolder()
         #endif
 
-        var loadedImage: KFCrossPlatformImage? = nil { willSet { notifyChange() } }
+        private(set) var loadedImage: KFCrossPlatformImage? = nil { willSet { notifyChange() } }
+        var failureView: (() -> AnyView)? = nil { willSet { notifyChange() } }
+        var progress: Progress = .kfNew
 
-        /// Assigns ``loadedImage`` and, on Android, mirrors it into ``imageHolder``.
-        /// Deliberately not a `didSet` on the property: the class is `@Observable` there
-        /// and the macro rewrites stored properties, so an observer on one is not
-        /// something to depend on.
-        func setLoadedImage(_ image: KFCrossPlatformImage?) {
+        /// Whether the current `loadedImage` is the fallback supplied by the deprecated `onFailureImage`, instead of
+        /// an image retrieved from the cache or the network.
+        private(set) var usesFailureImage = false
+
+        /// Sets `loadedImage` together with where that image came from.
+        ///
+        /// A cancelled request can still deliver its failure after a restarted load has begun, so the two values have
+        /// to change as a pair. Otherwise the provenance outlives the image it described, and a retrieved image ends
+        /// up reported as a fallback. Going through here is the only way to set the image, so no assignment site can
+        /// leave the two out of step. It also covers the change event, since `loadedImage` sends it.
+        ///
+        /// On Android it also mirrors the image into ``imageHolder``. Deliberately not a `didSet`
+        /// on the property: the class is `@Observable` there and the macro rewrites stored
+        /// properties, so an observer on one is not something to depend on.
+        func setLoadedImage(_ image: KFCrossPlatformImage?, isFailureImage: Bool = false) {
+            usesFailureImage = isFailureImage
             loadedImage = image
             #if os(Android)
             imageHolder.setImage(image)
             #endif
         }
-        var failureView: (() -> AnyView)? = nil { willSet { notifyChange() } }
-        var progress: Progress = .kfNew
 
         func markLoading() {
             loading = true
@@ -158,7 +169,7 @@ extension KFImage {
                     if let view = context.failureView {
                         self.failureView = view
                     } else if let image = context.options.onFailureImage {
-                        self.setLoadedImage(image)
+                        self.setLoadedImage(image, isFailureImage: true)
                     }
                     self.loading = false
                     self.markLoaded(sendChangeEvent: false)
@@ -173,19 +184,30 @@ extension KFImage {
                 .retrieveImage(
                     with: source,
                     options: context.options,
-                    progressBlock: { size, total in
+                    progressBlock: { [weak self] size, total in
+                        guard let self else { return }
                         self.updateProgress(downloaded: size, total: total)
                         context.onProgressDelegate.call((size, total))
                     },
-                    progressiveImageSetter: { image in
-                        CallbackQueueMain.currentOrAsync {
+                    progressiveImageSetter: { [weak self] image in
+                        CallbackQueueMain.currentOrAsync { [weak self] in
+                            guard let self else { return }
                             self.markLoaded(sendChangeEvent: true)
                             self.setLoadedImage(image)
                         }
                     },
                     completionHandler: { [weak self] result in
-
-                        guard let self else { return }
+                        guard let self else {
+                            CallbackQueueMain.async {
+                                switch result {
+                                case .success(let value):
+                                    context.onSuccessDelegate.call(value)
+                                case .failure(let error):
+                                    context.onFailureDelegate.call(error)
+                                }
+                            }
+                            return
+                        }
 
                         CallbackQueueMain.currentOrAsync {
                             self.downloadTask = nil
@@ -236,7 +258,7 @@ extension KFImage {
                                 if let view = context.failureView {
                                     self.failureView = view
                                 } else if let image = context.options.onFailureImage {
-                                    self.setLoadedImage(image)
+                                    self.setLoadedImage(image, isFailureImage: true)
                                 }
                                 self.markLoaded(sendChangeEvent: false)
                             }
@@ -270,14 +292,14 @@ extension KFImage {
             loading = false
         }
         
-        /// Restores the download task priority to default if it is in progress.
+        /// Restores the original download task priority if it is in progress.
         ///
         /// A no-op on Android, whose downloader replaces the transport and so has no
         /// `URLSessionTask` to reprioritise; its own two-FIFO gate does the pacing.
         func restorePriorityOnAppear() {
             #if !os(Android)
             guard let downloadTask = downloadTask, loading == true else { return }
-            downloadTask.sessionTask?.task.priority = URLSessionTask.defaultPriority
+            downloadTask.resetPriority()
             #endif
         }
         
@@ -286,7 +308,7 @@ extension KFImage {
         func reducePriorityOnDisappear() {
             #if !os(Android)
             guard let downloadTask = downloadTask, loading == true else { return }
-            downloadTask.sessionTask?.task.priority = URLSessionTask.lowPriority
+            downloadTask.setPriority(URLSessionTask.lowPriority)
             #endif
         }
     }

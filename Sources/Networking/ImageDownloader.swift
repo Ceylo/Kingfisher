@@ -89,12 +89,17 @@ public final class DownloadTask: @unchecked Sendable {
     }
 
     /// Creates a task backed by a Swift concurrency `Task`, for an ``ImageDownloader``
-    /// subclass outside this module that does its own transport.
+    /// subclass that performs its own transport.
     ///
-    /// Android's FurAffinity build overrides ``ImageDownloader/downloadImage(with:options:completionHandler:)``
-    /// to go through OkHttp, and needs to hand ``KingfisherManager`` back a task that
-    /// is both cancellable and ``isInitialized``. Every other initializer here is
-    /// internal, so without this the override cannot return anything usable.
+    /// An override of ``ImageDownloader/downloadImage(with:options:completionHandler:)``
+    /// that does not call `super` still has to return a task. The one created here is
+    /// ``isInitialized``, so ``KingfisherManager`` hands it to the caller, and calling
+    /// ``cancel()`` on it cancels `work`.
+    ///
+    /// When `work` is cancelled, complete with
+    /// ``KingfisherError/RequestErrorReason/asyncTaskContextCancelled`` so that
+    /// ``KingfisherManager`` treats the failure as a cancellation and does not retry or
+    /// move on to an alternative source.
     public convenience init(cancelling work: Task<Void, Never>) {
         self.init(providerTask: work)
     }
@@ -157,6 +162,16 @@ public final class DownloadTask: @unchecked Sendable {
         }
         guard let sessionTask, let cancelToken else { return }
         sessionTask.cancel(token: cancelToken)
+    }
+
+    func setPriority(_ priority: Float) {
+        guard let sessionTask, let cancelToken else { return }
+        sessionTask.setPriority(priority, for: cancelToken)
+    }
+
+    func resetPriority() {
+        guard let sessionTask, let cancelToken else { return }
+        sessionTask.resetPriority(for: cancelToken)
     }
     
     public var isInitialized: Bool {
@@ -393,7 +408,7 @@ open class ImageDownloader: @unchecked Sendable {
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: downloadTimeout)
         request.httpShouldUsePipelining = requestsUsePipelining
         #if !os(Android)
-        if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) , options.lowDataModeSource != nil {
+        if options.lowDataModeSource != nil {
             request.allowsConstrainedNetworkAccess = false
         }
         #endif
@@ -439,7 +454,6 @@ open class ImageDownloader: @unchecked Sendable {
             downloadTask = existingDownloadTask
         } else {
             let sessionDataTask = session.dataTask(with: context.request)
-            sessionDataTask.priority = context.options.downloadPriority
             downloadTask = sessionDelegate.add(sessionDataTask, url: context.url, callback: callback)
         }
         return downloadTask

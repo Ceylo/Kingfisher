@@ -110,36 +110,32 @@ extension KingfisherWrapper where Base: CPListItem {
         progressBlock: DownloadProgressBlock? = nil,
         completionHandler: (@MainActor @Sendable (Result<RetrieveImageResult, KingfisherError>) -> Void)? = nil) -> DownloadTask?
     {
-        var mutatingSelf = self
         return setImage(
             with: source,
             imageAccessor: ImagePropertyAccessor(
-                setImage: { image, _ in
-                    /**
-                     * In iOS SDK 14.0-14.4 the image param was non-`nil`. The SDK changed in 14.5
-                     * to allow `nil`. The compiler version 5.4 was introduced in this same SDK,
-                     * which allows >=14.5 SDK to set a `nil` image. This compile check allows
-                     * newer SDK users to set the image to `nil`, while still allowing older SDK
-                     * users to compile the framework.
-                     */
-                    #if compiler(>=5.4)
-                    self.base.setImage(image)
-                    #else
-                    if let image = image {
-                        self.base.setImage(image)
-                    }
-                    #endif
+                setImage: { listItem, image, _ in
+                    listItem.setImage(image)
                 },
-                getImage: {
-                    self.base.image
+                getImage: { listItem in
+                    listItem.image
                 }
             ),
             taskAccessor: TaskPropertyAccessor(
-                setTaskIdentifier: { mutatingSelf.taskIdentifier = $0 },
-                getTaskIdentifier: { mutatingSelf.taskIdentifier },
-                setTask: { mutatingSelf.imageTask = $0 },
-                getCancellationToken: { mutatingSelf.cancellationToken },
-                setCancellationToken: { mutatingSelf.cancellationToken = $0 }
+                setTaskIdentifier: { wrapper, identifier in
+                    wrapper.taskIdentifier = identifier
+                },
+                getTaskIdentifier: { wrapper in
+                    wrapper.taskIdentifier
+                },
+                setTask: { wrapper, task in
+                    wrapper.imageTask = task
+                },
+                getCancellationToken: { wrapper in
+                    wrapper.cancellationToken
+                },
+                setCancellationToken: { wrapper, token in
+                    wrapper.cancellationToken = token
+                }
             ),
             placeholder: placeholder,
             parsedOptions: parsedOptions,
@@ -171,7 +167,7 @@ extension KingfisherWrapper where Base: CPListItem {
             let box: Box<Source.Identifier.Value>? = getAssociatedObject(base, &taskIdentifierKey)
             return box?.value
         }
-        set {
+        nonmutating set {
             let box = newValue.map { Box($0) }
             setRetainedAssociatedObject(base, &taskIdentifierKey, box)
         }
@@ -179,12 +175,12 @@ extension KingfisherWrapper where Base: CPListItem {
 
     var cancellationToken: CancellationToken? {
         get { getAssociatedObject(base, &cancellationTokenKey) }
-        set { setRetainedAssociatedObject(base, &cancellationTokenKey, newValue) }
+        nonmutating set { setRetainedAssociatedObject(base, &cancellationTokenKey, newValue) }
     }
 
     private var imageTask: DownloadTask? {
         get { return getAssociatedObject(base, &imageTaskKey) }
-        set { setRetainedAssociatedObject(base, &imageTaskKey, newValue)}
+        nonmutating set { setRetainedAssociatedObject(base, &imageTaskKey, newValue)}
     }
 }
 #endif

@@ -115,19 +115,32 @@ extension KingfisherWrapper where Base: UIButton {
         progressBlock: DownloadProgressBlock? = nil,
         completionHandler: (@MainActor @Sendable (Result<RetrieveImageResult, KingfisherError>) -> Void)? = nil) -> DownloadTask?
     {
-        var mutatingSelf = self
         return setImage(
             with: source,
             imageAccessor: ImagePropertyAccessor(
-                setImage: { image, _ in base.setImage(image, for: state) },
-                getImage: { base.image(for: state) }
+                setImage: { button, image, _ in
+                    button.setImage(image, for: state)
+                },
+                getImage: { button in
+                    button.image(for: state)
+                }
             ),
             taskAccessor: TaskPropertyAccessor(
-                setTaskIdentifier: { setTaskIdentifier($0, for: state) },
-                getTaskIdentifier: { taskIdentifier(for: state) },
-                setTask: { mutatingSelf.imageTask = $0 },
-                getCancellationToken: { imageCancellationToken },
-                setCancellationToken: { mutatingSelf.imageCancellationToken = $0 }
+                setTaskIdentifier: { wrapper, identifier in
+                    wrapper.setTaskIdentifier(identifier, for: state)
+                },
+                getTaskIdentifier: { wrapper in
+                    wrapper.taskIdentifier(for: state)
+                },
+                setTask: { wrapper, task in
+                    wrapper.imageTask = task
+                },
+                getCancellationToken: { wrapper in
+                    wrapper.imageCancellationToken
+                },
+                setCancellationToken: { wrapper, token in
+                    wrapper.imageCancellationToken = token
+                }
             ),
             placeholder: placeholder,
             parsedOptions: parsedOptions,
@@ -227,23 +240,32 @@ extension KingfisherWrapper where Base: UIButton {
         progressBlock: DownloadProgressBlock? = nil,
         completionHandler: (@MainActor @Sendable (Result<RetrieveImageResult, KingfisherError>) -> Void)? = nil) -> DownloadTask?
     {
-        var mutatingSelf = self
         return setImage(
             with: source,
             imageAccessor: ImagePropertyAccessor(
-                setImage: { image, _ in
-                    base.setBackgroundImage(image, for: state)
+                setImage: { button, image, _ in
+                    button.setBackgroundImage(image, for: state)
                 },
-                getImage: {
-                    base.backgroundImage(for: state)
+                getImage: { button in
+                    button.backgroundImage(for: state)
                 }
             ),
             taskAccessor: TaskPropertyAccessor(
-                setTaskIdentifier: { setBackgroundTaskIdentifier($0, for: state) },
-                getTaskIdentifier: { backgroundTaskIdentifier(for: state) },
-                setTask: { mutatingSelf.backgroundImageTask = $0 },
-                getCancellationToken: { backgroundImageCancellationToken },
-                setCancellationToken: { mutatingSelf.backgroundImageCancellationToken = $0 }
+                setTaskIdentifier: { wrapper, identifier in
+                    wrapper.setBackgroundTaskIdentifier(identifier, for: state)
+                },
+                getTaskIdentifier: { wrapper in
+                    wrapper.backgroundTaskIdentifier(for: state)
+                },
+                setTask: { wrapper, task in
+                    wrapper.backgroundImageTask = task
+                },
+                getCancellationToken: { wrapper in
+                    wrapper.backgroundImageCancellationToken
+                },
+                setCancellationToken: { wrapper, token in
+                    wrapper.backgroundImageCancellationToken = token
+                }
             ),
             placeholder: placeholder,
             parsedOptions: parsedOptions,
@@ -290,12 +312,12 @@ extension KingfisherWrapper where Base: UIButton {
     
     private var imageTask: DownloadTask? {
         get { return getAssociatedObject(base, &imageTaskKey) }
-        set { setRetainedAssociatedObject(base, &imageTaskKey, newValue)}
+        nonmutating set { setRetainedAssociatedObject(base, &imageTaskKey, newValue)}
     }
 
     private var imageCancellationToken: CancellationToken? {
         get { getAssociatedObject(base, &imageCancellationTokenKey) }
-        set { setRetainedAssociatedObject(base, &imageCancellationTokenKey, newValue) }
+        nonmutating set { setRetainedAssociatedObject(base, &imageCancellationTokenKey, newValue) }
     }
 }
 
@@ -325,12 +347,12 @@ extension KingfisherWrapper where Base: UIButton {
     
     private var backgroundImageTask: DownloadTask? {
         get { return getAssociatedObject(base, &backgroundImageTaskKey) }
-        mutating set { setRetainedAssociatedObject(base, &backgroundImageTaskKey, newValue) }
+        nonmutating set { setRetainedAssociatedObject(base, &backgroundImageTaskKey, newValue) }
     }
 
     private var backgroundImageCancellationToken: CancellationToken? {
         get { getAssociatedObject(base, &backgroundImageCancellationTokenKey) }
-        set { setRetainedAssociatedObject(base, &backgroundImageCancellationTokenKey, newValue) }
+        nonmutating set { setRetainedAssociatedObject(base, &backgroundImageCancellationTokenKey, newValue) }
     }
 }
 #endif

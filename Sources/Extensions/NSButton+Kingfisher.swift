@@ -108,21 +108,33 @@ extension KingfisherWrapper where Base: NSButton {
         completionHandler: (@MainActor @Sendable (Result<RetrieveImageResult, KingfisherError>) -> Void)? = nil
     ) -> DownloadTask?
     {
-        var mutatingSelf = self
         return setImage(
             with: source,
             imageAccessor: ImagePropertyAccessor(
-                setImage: { image, _ in
-                    base.image = image
-                }, getImage: {
-                    base.image
-                }),
+                setImage: { button, image, _ in
+                    button.image = image
+                },
+                getImage: { button in
+                    button.image
+                }
+            ),
             taskAccessor: TaskPropertyAccessor(
-                setTaskIdentifier: { mutatingSelf.taskIdentifier = $0 },
-                getTaskIdentifier: { mutatingSelf.taskIdentifier },
-                setTask: { mutatingSelf.imageTask = $0 },
-                getCancellationToken: { mutatingSelf.imageCancellationToken },
-                setCancellationToken: { mutatingSelf.imageCancellationToken = $0 }),
+                setTaskIdentifier: { wrapper, identifier in
+                    wrapper.taskIdentifier = identifier
+                },
+                getTaskIdentifier: { wrapper in
+                    wrapper.taskIdentifier
+                },
+                setTask: { wrapper, task in
+                    wrapper.imageTask = task
+                },
+                getCancellationToken: { wrapper in
+                    wrapper.imageCancellationToken
+                },
+                setCancellationToken: { wrapper, token in
+                    wrapper.imageCancellationToken = token
+                }
+            ),
             placeholder: placeholder,
             parsedOptions: parsedOptions,
             progressBlock: progressBlock,
@@ -200,21 +212,32 @@ extension KingfisherWrapper where Base: NSButton {
         completionHandler: (@MainActor @Sendable (Result<RetrieveImageResult, KingfisherError>) -> Void)? = nil
     ) -> DownloadTask?
     {
-        var mutatingSelf = self
         return setImage(
             with: source,
             imageAccessor: ImagePropertyAccessor(
-                setImage: { image, _ in
-                    base.alternateImage = image
-                }, getImage: {
-                    base.alternateImage
-                }),
+                setImage: { button, image, _ in
+                    button.alternateImage = image
+                },
+                getImage: { button in
+                    button.alternateImage
+                }
+            ),
             taskAccessor: TaskPropertyAccessor(
-                setTaskIdentifier: { mutatingSelf.alternateTaskIdentifier = $0 },
-                getTaskIdentifier: { mutatingSelf.alternateTaskIdentifier },
-                setTask: { mutatingSelf.alternateImageTask = $0 },
-                getCancellationToken: { mutatingSelf.alternateImageCancellationToken },
-                setCancellationToken: { mutatingSelf.alternateImageCancellationToken = $0 }
+                setTaskIdentifier: { wrapper, identifier in
+                    wrapper.alternateTaskIdentifier = identifier
+                },
+                getTaskIdentifier: { wrapper in
+                    wrapper.alternateTaskIdentifier
+                },
+                setTask: { wrapper, task in
+                    wrapper.alternateImageTask = task
+                },
+                getCancellationToken: { wrapper in
+                    wrapper.alternateImageCancellationToken
+                },
+                setCancellationToken: { wrapper, token in
+                    wrapper.alternateImageCancellationToken = token
+                }
             ),
             placeholder: placeholder,
             parsedOptions: parsedOptions,
@@ -254,7 +277,7 @@ extension KingfisherWrapper where Base: NSButton {
             let box: Box<Source.Identifier.Value>? = getAssociatedObject(base, &taskIdentifierKey)
             return box?.value
         }
-        set {
+        nonmutating set {
             let box = newValue.map { Box($0) }
             setRetainedAssociatedObject(base, &taskIdentifierKey, box)
         }
@@ -262,12 +285,12 @@ extension KingfisherWrapper where Base: NSButton {
     
     private var imageTask: DownloadTask? {
         get { return getAssociatedObject(base, &imageTaskKey) }
-        set { setRetainedAssociatedObject(base, &imageTaskKey, newValue)}
+        nonmutating set { setRetainedAssociatedObject(base, &imageTaskKey, newValue)}
     }
 
     private var imageCancellationToken: CancellationToken? {
         get { getAssociatedObject(base, &imageCancellationTokenKey) }
-        set { setRetainedAssociatedObject(base, &imageCancellationTokenKey, newValue) }
+        nonmutating set { setRetainedAssociatedObject(base, &imageCancellationTokenKey, newValue) }
     }
 
     public private(set) var alternateTaskIdentifier: Source.Identifier.Value? {
@@ -275,7 +298,7 @@ extension KingfisherWrapper where Base: NSButton {
             let box: Box<Source.Identifier.Value>? = getAssociatedObject(base, &alternateTaskIdentifierKey)
             return box?.value
         }
-        set {
+        nonmutating set {
             let box = newValue.map { Box($0) }
             setRetainedAssociatedObject(base, &alternateTaskIdentifierKey, box)
         }
@@ -283,12 +306,12 @@ extension KingfisherWrapper where Base: NSButton {
 
     private var alternateImageTask: DownloadTask? {
         get { return getAssociatedObject(base, &alternateImageTaskKey) }
-        set { setRetainedAssociatedObject(base, &alternateImageTaskKey, newValue)}
+        nonmutating set { setRetainedAssociatedObject(base, &alternateImageTaskKey, newValue)}
     }
 
     private var alternateImageCancellationToken: CancellationToken? {
         get { getAssociatedObject(base, &alternateImageCancellationTokenKey) }
-        set { setRetainedAssociatedObject(base, &alternateImageCancellationTokenKey, newValue) }
+        nonmutating set { setRetainedAssociatedObject(base, &alternateImageCancellationTokenKey, newValue) }
     }
 }
 #endif

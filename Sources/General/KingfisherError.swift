@@ -91,6 +91,10 @@ public enum KingfisherError: Error {
         /// When a `URLSessionTask` is already in flight at the moment of cancellation,
         /// ``RequestErrorReason/taskCancelled(task:token:)`` is reported instead.
         ///
+        /// A custom ``ImageDownloader`` that returns ``DownloadTask/init(cancelling:)`` also reports this
+        /// reason when its work is cancelled, including after the load has started, since it has no
+        /// ``SessionDataTask`` either.
+        ///
         /// Error Code: 1005
         case asyncTaskContextCancelled
 
@@ -410,12 +414,15 @@ public enum KingfisherError: Error {
 
     // MARK: Helper Properties & Methods
 
-    /// A helper property to determine if this error is of type `RequestErrorReason.taskCancelled`.
+    /// A helper property to determine if this error is of type `RequestErrorReason.taskCancelled` or
+    /// `RequestErrorReason.asyncTaskContextCancelled`.
     public var isTaskCancelled: Bool {
-        if case .requestError(reason: .taskCancelled) = self {
+        switch self {
+        case .requestError(reason: .taskCancelled), .requestError(reason: .asyncTaskContextCancelled):
             return true
+        default:
+            return false
         }
-        return false
     }
 
     /// Helper method to check whether this error is a ``ResponseErrorReason/invalidHTTPStatusCode(response:)``
@@ -475,8 +482,7 @@ public enum KingfisherError: Error {
         #if os(Android)
         return false
         #else
-        if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *),
-           case .responseError(reason: .URLSessionError(let sessionError)) = self,
+        if case .responseError(reason: .URLSessionError(let sessionError)) = self,
            let urlError = sessionError as? URLError,
            urlError.networkUnavailableReason == .constrained
         {
