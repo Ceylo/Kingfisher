@@ -550,9 +550,21 @@ class ImageLoadingProgressSideEffect: DataReceivingSideEffect, @unchecked Sendab
 }
 
 extension KingfisherParsedOptionsInfo {
-    /// Feeds the progress block of whoever asked for this image, for an
-    /// `ImageDownloader` subclass that replaces the URLSession transport and so never
-    /// reaches `onDataReceived`. An unknown `totalSize` (-1) is dropped, as it is there.
+    /// Reports download progress to the progress blocks of this request.
+    ///
+    /// An ``ImageDownloader`` subclass that overrides `downloadImage(with:options:completionHandler:)` to replace
+    /// the URLSession transport never goes through the URLSession delegate that normally reports progress. Call
+    /// this as data arrives so that a `progressBlock` passed to ``KingfisherManager``, the image view extensions
+    /// or ``KFImage``'s `onProgress` still receives updates.
+    ///
+    /// It can be called from any thread. The blocks run on the main queue, and are skipped in the same cases as
+    /// for a URLSession download, such as once an image view extension has started loading another image into
+    /// the same view. A `totalSize` of `-1` (unknown length) is not reported. Only progress blocks are fed: ``KingfisherOptionsInfoItem/progressiveJPEG(_:)`` needs the
+    /// received data itself and gets no updates from this method.
+    ///
+    /// - Parameters:
+    ///   - receivedSize: The number of bytes received so far.
+    ///   - totalSize: The expected number of bytes, or `-1` if it is unknown.
     public func reportDownloadProgress(receivedSize: Int64, totalSize: Int64) {
         onDataReceived?.forEach {
             ($0 as? ImageLoadingProgressSideEffect)?

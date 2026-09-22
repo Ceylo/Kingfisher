@@ -72,7 +72,6 @@ import Combine
 /// You can disable this behavior by calling `.loadDiskFileSynchronously(false)` if you prefer better loading performance
 /// over visual consistency.
 ///
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
 public struct KFImage: KFImageProtocol, View {
     
     /// Represent the wrapping context of the image view.
@@ -91,7 +90,6 @@ public struct KFImage: KFImageProtocol, View {
     }
 }
 
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
 extension Image: KFImageHoldingView {
     public typealias RenderingView = Image
     public static func created(from image: KFCrossPlatformImage?, context: KFImage.Context<Self>) -> Image {
@@ -106,7 +104,6 @@ extension Image: KFImageHoldingView {
 }
 
 // MARK: - Image compatibility.
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
 extension KFImage {
 
     public func resizable(
@@ -152,7 +149,6 @@ extension KFImage {
 }
 
 #if DEBUG && !os(Android)
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
 struct KFImage_Previews: PreviewProvider {
     static var previews: some View {
         Group {

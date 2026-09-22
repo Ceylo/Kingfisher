@@ -29,7 +29,6 @@
 #if canImport(CarPlay) && !targetEnvironment(macCatalyst)
 import CarPlay
 
-@available(iOS 14.0, *)
 @MainActor
 extension KingfisherWrapper where Base: CPListItem {
     

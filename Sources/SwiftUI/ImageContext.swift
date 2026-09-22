@@ -34,7 +34,6 @@ import SwiftUI
 import Combine
 #endif
 
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
 extension KFImage {
     public class Context<HoldingView: KFImageHoldingView>: @unchecked Sendable where HoldingView: Sendable {
         
@@ -181,7 +180,6 @@ extension ImageTransition {
 }
 
 
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
 extension KFImage.Context: Hashable {
     public static func == (lhs: KFImage.Context<HoldingView>, rhs: KFImage.Context<HoldingView>) -> Bool {
         lhs.source == rhs.source &&
@@ -195,7 +193,6 @@ extension KFImage.Context: Hashable {
 }
 
 #if !os(watchOS) && !os(Android)
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, *)
 extension KFAnimatedImage {
     public typealias Context = KFImage.Context
     typealias ImageBinder = KFImage.ImageBinder
