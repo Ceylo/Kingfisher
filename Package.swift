@@ -26,7 +26,7 @@ let package = Package(
     dependencies: [
         // Exact, and equal to the FurAffinity manifests': a floating pin silently drifts
         // past the installed `skip` CLI.
-        .package(url: "https://source.skip.tools/skip.git", exact: "1.9.4"),
+        .package(url: "https://github.com/skiptools/skip.git", exact: "1.9.11"),
         .package(url: "https://github.com/Ceylo/skip-fuse-ui.git", branch: "android"),
         .package(url: "https://github.com/Ceylo/skip-ui.git", branch: "android"),
     ],
