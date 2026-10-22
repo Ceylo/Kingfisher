@@ -185,7 +185,7 @@ struct KFImageRenderer<HoldingView> : View where HoldingView: KFImageHoldingView
     @ViewBuilder
     private var configuredImage: some View {
         #if os(Android)
-        let baseImage = HoldingView.created(fromHolder: binder.imageHolder, context: context)
+        let baseImage = HoldingView.created(fromHolder: binder.imageHolder, loadedImage: binder.loadedImage, context: context)
             ?? HoldingView.created(from: binder.loadedImage, context: context)
         #else
         let baseImage = HoldingView.created(from: binder.loadedImage, context: context)

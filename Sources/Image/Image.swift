@@ -30,6 +30,7 @@
 // would make every bare mention here ambiguous. `KFCrossPlatformImage` is its `UIImage`
 // via the typealias in General/Kingfisher.swift, and members resolve without the import.
 import Foundation
+import SkipBridge
 #elseif os(macOS)
 import AppKit
 #else // os(macOS)
@@ -53,16 +54,70 @@ import UniformTypeIdentifiers
 
 // Kingfisher funnels every decode through the five entry points below. On Android
 // they map onto SkipSwiftUI's Bitmap-backed `UIImage` instead of ImageIO, which is
-// why no CoreGraphics/ImageIO shim is needed. Two things do not survive the crossing:
-// there is no ObjC runtime to hang associated objects on, so the per-image metadata
-// is not stored, and there is no animated-image path, so a GIF decodes to its first
-// frame.
+// why no CoreGraphics/ImageIO shim is needed. There is no ObjC runtime to hang
+// associated objects on, so the per-image metadata is not stored — except an animated
+// GIF's bytes, which `KFAnimatedDataImage` carries for `KFAnimatedImage` to play.
+
+/// An animated GIF decoded to its first frame, plus the bytes `KFAnimatedImage` plays —
+/// the Android stand-in for the `animatedImageData` associated object.
+final class KFAnimatedDataImage: KFCrossPlatformImage, @unchecked Sendable {
+    let animatedImageData: Data
+
+    init?(data: Data, scale: CGFloat) {
+        animatedImageData = data
+        super.init(data: data, scale: Double(scale))
+    }
+
+    /// The Kotlin `KFAnimatedImageModifier` (Sources/Skip) playing these bytes, made on
+    /// first use and then shared by every view showing this image.
+    @MainActor lazy var animationModifier: AnyDynamicObject? =
+        try? AnyDynamicObject(className: "kingfisher.KFAnimatedImageModifier", animatedImageData)
+}
+
+/// Whether a GIF holds a second frame, found by walking its blocks up to the second image
+/// descriptor. Most FA avatars are single-frame GIFs, and those need no bytes kept.
+/// Malformed data reads as one frame.
+private func hasSeveralGIFFrames(_ data: Data) -> Bool {
+    data.withUnsafeBytes { (b: UnsafeRawBufferPointer) -> Bool in
+        guard b.count >= 13 else { return false }
+        // Header and logical screen descriptor, then the global color table if any.
+        var i = 13
+        if b[10] & 0x80 != 0 { i += 3 << (Int(b[10] & 0x07) + 1) }
+        var frames = 0
+        // Data sub-blocks: a length byte then that many bytes, until a zero length.
+        func skipSubBlocks() {
+            while i < b.count {
+                let length = Int(b[i])
+                i += 1 + length
+                if length == 0 { return }
+            }
+        }
+        while i < b.count {
+            switch b[i] {
+            case 0x21: // extension: introducer, label, sub-blocks
+                i += 2
+                skipSubBlocks()
+            case 0x2C: // image descriptor, then local color table, LZW code size, sub-blocks
+                frames += 1
+                if frames > 1 { return true }
+                guard i + 10 <= b.count else { return false }
+                let packed = b[i + 9]
+                i += 10
+                if packed & 0x80 != 0 { i += 3 << (Int(packed & 0x07) + 1) }
+                i += 1
+                skipSubBlocks()
+            default: // trailer, or not a GIF block
+                return false
+            }
+        }
+        return false
+    }
+}
 
 // MARK: - Image Properties
 extension KingfisherWrapper where Base: KFCrossPlatformImage {
-    private(set) var animatedImageData: Data? {
-        get { nil }
-        set { }
+    var animatedImageData: Data? {
+        (base as? KFAnimatedDataImage)?.animatedImageData
     }
 
     private(set) var imageCreatingOptions: ImageCreatingOptions? {
@@ -85,8 +140,9 @@ extension KingfisherWrapper where Base: KFCrossPlatformImage {
     /// No-op on Android: there is no associated-object storage to copy.
     public func copyKingfisherState(to target: KFCrossPlatformImage) { }
 
-    // Bitmap memory cost with bytes. `Bitmap` is always 4 bytes per pixel here.
-    var cost: Int { Int(size.width * size.height * 4) }
+    // Bitmap memory cost with bytes. `Bitmap` is always 4 bytes per pixel here. A GIF's
+    // bytes count twice: its `animationModifier` holds a JVM copy once a view plays it.
+    var cost: Int { Int(size.width * size.height * 4) + 2 * (animatedImageData?.count ?? 0) }
 }
 
 // MARK: - Image Conversion
@@ -117,9 +173,8 @@ extension KingfisherWrapper where Base: KFCrossPlatformImage {
         base.jpegData(compressionQuality: Double(compressionQuality))
     }
 
-    /// Returns GIF representation of `base` image. Always `nil` on Android, which has
-    /// no animated-image path.
-    public func gifRepresentation() -> Data? { nil }
+    /// Returns GIF representation of `base` image.
+    public func gifRepresentation() -> Data? { animatedImageData }
 
     /// Returns a data representation for the `base` image with the specified `format`.
     public func data(format: ImageFormat, compressionQuality: CGFloat = 1.0) -> Data? {
@@ -134,17 +189,22 @@ extension KingfisherWrapper where Base: KFCrossPlatformImage {
 
 // MARK: - Creating Images
 extension KingfisherWrapper where Base: KFCrossPlatformImage {
-    /// Creates an image from provided data and options.
-    ///
-    /// Android has no animated-image path, so a GIF decodes to its first frame.
+    /// Creates an animated image from provided data and options: its first frame, carrying
+    /// the bytes `KFAnimatedImage` plays. A plain image for a single frame or `onlyFirstFrame`.
     public static func animatedImage(data: Data, options: ImageCreatingOptions) -> KFCrossPlatformImage? {
-        image(data: data, options: options)
+        if options.onlyFirstFrame || !hasSeveralGIFFrames(data) {
+            return KFCrossPlatformImage(data: data, scale: Double(options.scale))
+        }
+        return KFAnimatedDataImage(data: data, scale: options.scale)
     }
 
     /// Creates an image from provided data and options. Returns `nil` if the data is
     /// invalid or in a format the platform decoder does not understand.
     public static func image(data: Data, options: ImageCreatingOptions) -> KFCrossPlatformImage? {
-        KFCrossPlatformImage(data: data, scale: Double(options.scale))
+        if data.kf.imageFormat == .GIF {
+            return animatedImage(data: data, options: options)
+        }
+        return KFCrossPlatformImage(data: data, scale: Double(options.scale))
     }
 
     /// Creates a downsampled image from the given data to a specified size and scale.

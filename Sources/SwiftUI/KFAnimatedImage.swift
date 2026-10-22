@@ -23,7 +23,59 @@
 //  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
-#if !os(Android)
+#if os(Android)
+// A branch of its own rather than `#if`s inside the Apple code: skipstone drops a file
+// whose top-level `#if` it cannot evaluate, and `!os(watchOS)` is one.
+import SwiftUI
+import SkipBridge
+
+/// Represents an animated image view in SwiftUI that manages its content using Kingfisher.
+///
+/// Similar to ``KFImage``, this view provides support for animated image formats like GIF.
+// Names `View` itself, as `KFImage` does: skipstone bridges only a view whose own
+// conformance list says so, and otherwise it draws nothing.
+public struct KFAnimatedImage: KFImageProtocol, View {
+    public typealias HoldingView = KFAnimatedImageHolderView
+    public var context: KFImage.Context<HoldingView>
+    public init(context: KFImage.Context<HoldingView>) {
+        self.context = context
+    }
+}
+
+/// Draws the first frame out of the binder's holder, as ``KFImage`` does, so a cached image
+/// is painted in its first frame. When the image carries a GIF's bytes, the Kotlin
+/// `KFAnimatedImageModifier` (Sources/Skip) then draws them in place of that frame.
+///
+/// Resizable, as `AnimatedImageView` stretches to its frame on iOS.
+public struct KFAnimatedImageHolderView: KFImageHoldingView, View, @unchecked Sendable {
+    public typealias RenderingView = Image
+
+    let image: Image
+    let animationModifier: AnyDynamicObject?
+
+    public static func created(from image: KFCrossPlatformImage?, context: KFImage.Context<Self>) -> Self {
+        Self(image: Image(crossPlatformImage: image), animatedImage: image)
+    }
+
+    public static func created(fromHolder holder: ImageHolder, loadedImage: KFCrossPlatformImage?, context: KFImage.Context<Self>) -> Self? {
+        Self(image: Image(holder: holder), animatedImage: loadedImage)
+    }
+
+    private init(image: Image, animatedImage: KFCrossPlatformImage?) {
+        self.image = image
+        animationModifier = (animatedImage as? KFAnimatedDataImage)?.animationModifier
+    }
+
+    public var body: some View {
+        if let animationModifier {
+            image.resizable().composeModifier { animationModifier }
+        } else {
+            image.resizable()
+        }
+    }
+}
+
+#else // os(Android)
 
 #if canImport(SwiftUI) && canImport(Combine) && !os(watchOS)
 import SwiftUI
@@ -148,4 +200,4 @@ struct KFAnimatedImage_Previews: PreviewProvider {
 #endif
 #endif
 
-#endif // !os(Android)
+#endif // os(Android)
